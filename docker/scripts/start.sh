@@ -20,6 +20,14 @@ if [ -n "$NEXT_PUBLIC_EMAIL_SEND_ENABLED" ]; then
     /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_SEND_ENABLED_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_SEND_ENABLED"
 fi
 
+if [ -n "$NEXT_PUBLIC_EMAIL_TRACKER_URL" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_TRACKER_URL_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_TRACKER_URL"
+fi
+
+if [ -n "$NEXT_PUBLIC_EMAIL_TRACKER_API_KEY" ]; then
+    /app/docker/scripts/replace-placeholder.sh "NEXT_PUBLIC_EMAIL_TRACKER_API_KEY_PLACEHOLDER" "$NEXT_PUBLIC_EMAIL_TRACKER_API_KEY"
+fi
+
 if [ -n "$DATABASE_URL" ]; then
     echo "🔄 Running database migrations..."
     if timeout 320 prisma migrate deploy --schema=./apps/web/prisma/schema.prisma; then

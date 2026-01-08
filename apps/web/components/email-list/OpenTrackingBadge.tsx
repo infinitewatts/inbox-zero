@@ -29,7 +29,11 @@ async function fetchTrackingStatus(emailId: string): Promise<TrackingStatus | nu
   if (!env.NEXT_PUBLIC_EMAIL_TRACKER_URL) return null;
 
   try {
-    const res = await fetch(`${env.NEXT_PUBLIC_EMAIL_TRACKER_URL}/api/status/${emailId}`);
+    const res = await fetch(`${env.NEXT_PUBLIC_EMAIL_TRACKER_URL}/api/status/${emailId}`, {
+      headers: env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY
+        ? { "X-API-Key": env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY }
+        : {},
+    });
     if (!res.ok) return null;
     return res.json();
   } catch {

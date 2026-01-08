@@ -23,11 +23,11 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "flex-1 transition-all duration-200 ease-linear",
+        "min-w-0 flex-1 transition-all duration-200 ease-linear",
         isRightSidebarOpen && "lg:mr-[450px]",
       )}
     >
-      <SidebarInset className="overflow-hidden bg-background pt-9 max-w-full">
+      <SidebarInset className="min-w-0 overflow-hidden bg-background pt-9 max-w-full">
         {children}
         <div
           className="md:hidden md:pt-0"

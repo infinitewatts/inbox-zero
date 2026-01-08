@@ -194,6 +194,7 @@ export const env = createEnv({
 
     // Email open tracking
     NEXT_PUBLIC_EMAIL_TRACKER_URL: z.string().optional(),
+    NEXT_PUBLIC_EMAIL_TRACKER_API_KEY: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -260,5 +261,6 @@ export const env = createEnv({
 
     // Email open tracking
     NEXT_PUBLIC_EMAIL_TRACKER_URL: process.env.NEXT_PUBLIC_EMAIL_TRACKER_URL,
+    NEXT_PUBLIC_EMAIL_TRACKER_API_KEY: process.env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY,
   },
 });

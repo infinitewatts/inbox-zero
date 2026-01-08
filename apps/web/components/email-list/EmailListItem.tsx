@@ -85,11 +85,11 @@ export const EmailListItem = forwardRef(
           }}
         >
           <div className="px-4">
-            <div className="mx-auto flex">
+            <div className="flex w-full min-w-0">
               {/* left */}
               <div
                 className={clsx(
-                  "flex flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
+                  "flex min-w-0 flex-1 items-center overflow-hidden whitespace-nowrap text-sm leading-6",
                   {
                     "font-semibold": isUnread,
                   },
