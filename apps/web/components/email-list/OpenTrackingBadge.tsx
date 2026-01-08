@@ -66,7 +66,7 @@ function getFirstName(email: string): string {
 
 function getTrackingIdFromMessage(message: ParsedMessage): string | null {
   // Check for our custom tracking header
-  const headers = message.headers as Record<string, string | undefined>;
+  const headers = message.headers as unknown as Record<string, string | undefined>;
   const trackingId = headers["x-inbox-zero-tracking-id"];
   if (trackingId) return trackingId;
 
