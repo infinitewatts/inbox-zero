@@ -18,8 +18,26 @@ export function createGoogleCalendarProvider(
     async exchangeCodeForTokens(code: string): Promise<CalendarTokens> {
       const googleAuth = getCalendarOAuth2Client();
 
-      const { tokens } = await googleAuth.getToken(code);
+      logger.info("Exchanging OAuth code for tokens");
+
+      let tokens;
+      try {
+        const result = await googleAuth.getToken(code);
+        tokens = result.tokens;
+      } catch (error) {
+        logger.error("Failed to exchange code for tokens", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+
       const { id_token, access_token, refresh_token, expiry_date } = tokens;
+
+      logger.info("Token exchange result", {
+        hasIdToken: !!id_token,
+        hasAccessToken: !!access_token,
+        hasRefreshToken: !!refresh_token,
+      });
 
       if (!id_token) {
         throw new Error("Missing id_token from Google response");

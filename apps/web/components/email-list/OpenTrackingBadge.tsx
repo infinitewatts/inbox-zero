@@ -16,6 +16,7 @@ type RecipientStatus = {
   recipient: string;
   opened: boolean;
   openCount: number;
+  botOpenCount?: number;
   firstOpened: string | null;
   lastOpened: string | null;
 };

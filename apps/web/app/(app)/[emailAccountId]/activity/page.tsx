@@ -25,6 +25,8 @@ type OpenEvent = {
   recipient: string;
   subject: string;
   sent_at: string;
+  is_bot?: number;
+  bot_reason?: string | null;
 };
 
 type ActivityResponse = {
@@ -38,7 +40,12 @@ async function fetchActivity(limit = 50): Promise<ActivityResponse | null> {
 
   try {
     const res = await fetch(
-      `${env.NEXT_PUBLIC_EMAIL_TRACKER_URL}/api/activity?limit=${limit}`
+      `${env.NEXT_PUBLIC_EMAIL_TRACKER_URL}/api/activity?limit=${limit}`,
+      {
+        headers: env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY
+          ? { "X-API-Key": env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY }
+          : {},
+      }
     );
     if (!res.ok) return null;
     return res.json();

@@ -31,6 +31,11 @@ export async function handleCalendarCallback(
 ): Promise<NextResponse> {
   let redirectHeaders = new Headers();
 
+  logger.info("Calendar callback started", {
+    provider: provider.name,
+    hasCode: !!request.nextUrl.searchParams.get("code"),
+  });
+
   try {
     // Step 1: Validate OAuth callback parameters
     const { code, redirectUrl, response } = await validateOAuthCallback(
@@ -38,6 +43,7 @@ export async function handleCalendarCallback(
       logger,
     );
     redirectHeaders = response.headers;
+    logger.info("OAuth callback validated, checking for cached result");
 
     // Step 1.5: Check for duplicate OAuth code processing
     const cachedResult = await getOAuthCodeResult(code);
@@ -57,7 +63,7 @@ export async function handleCalendarCallback(
 
     const acquiredLock = await acquireOAuthCodeLock(code);
     if (!acquiredLock) {
-      logger.info("OAuth code is being processed by another request");
+      logger.info("OAuth code is being processed by another request (duplicate request blocked)");
       const lockRedirectUrl = new URL("/calendars", env.NEXT_PUBLIC_BASE_URL);
       response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
       return redirectWithMessage(
@@ -66,6 +72,8 @@ export async function handleCalendarCallback(
         redirectHeaders,
       );
     }
+
+    logger.info("Acquired OAuth lock, starting calendar connection flow");
 
     // The validated state is in the request query params (already validated by validateOAuthCallback)
     const receivedState = request.nextUrl.searchParams.get("state");
@@ -121,6 +129,7 @@ export async function handleCalendarCallback(
     }
 
     // Step 7: Create calendar connection
+    logger.info("Creating calendar connection", { emailAccountId, email, provider: provider.name });
     const connection = await createCalendarConnection({
       provider: provider.name,
       email,

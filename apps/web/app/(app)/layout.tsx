@@ -1,4 +1,3 @@
-import "../../styles/globals.css";
 import type React from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

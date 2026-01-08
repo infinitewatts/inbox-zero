@@ -58,7 +58,7 @@ export default function Mail(props: {
   // store `refetch` in the atom so we can refresh the list upon archive via command k
   // TODO is this the best way to do this?
   const refetch = useCallback(
-    (options?: { removedThreadIds?: string[] }) => {
+    (options?: { removedThreadIds?: string[]; revalidate?: boolean }) => {
       mutate(
         (currentData) => {
           if (!currentData) return currentData;
@@ -74,7 +74,8 @@ export default function Mail(props: {
         {
           rollbackOnError: true,
           populateCache: true,
-          revalidate: false,
+          // Revalidate from server if explicitly requested or if no removedThreadIds
+          revalidate: options?.revalidate ?? !options?.removedThreadIds,
         },
       );
     },
