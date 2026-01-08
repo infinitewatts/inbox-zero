@@ -97,7 +97,7 @@ cp apps/web/.env.example apps/web/.env
 | `EMAIL_TRACKER_API_URL` | No | Server-side URL for the email tracker API | — |
 | `EMAIL_TRACKER_API_KEY` | No | Server-side API key for the email tracker | — |
 | **Debugging** ||||
-| `LOG_ZOD_ERRORS` | No | Log Zod validation errors | — |
+| `DISABLE_LOG_ZOD_ERRORS` | No | Disable logging Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |
 | `NEXT_PUBLIC_LOG_SCOPES` | No | Comma-separated log scopes | — |
 
