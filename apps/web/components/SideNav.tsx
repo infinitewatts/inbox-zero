@@ -18,6 +18,7 @@ import {
   FileTextIcon,
   InboxIcon,
   type LucideIcon,
+  MailOpenIcon,
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,
@@ -92,6 +93,17 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
+      // Email open tracking activity feed
+      ...(env.NEXT_PUBLIC_EMAIL_TRACKER_URL
+        ? [
+            {
+              name: "Open Activity",
+              href: prefixPath(currentEmailAccountId, "/activity"),
+              icon: MailOpenIcon,
+              new: true,
+            },
+          ]
+        : []),
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
