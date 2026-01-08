@@ -10,6 +10,7 @@ RUN npm install -g pnpm@10.22.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/unsubscriber/package.json apps/unsubscriber/package.json
+COPY packages/email-tracking/package.json packages/email-tracking/package.json
 COPY packages/loops/package.json packages/loops/package.json
 COPY packages/resend/package.json packages/resend/package.json
 COPY packages/tinybird/package.json packages/tinybird/package.json
