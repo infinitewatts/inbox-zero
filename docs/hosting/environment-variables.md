@@ -86,9 +86,16 @@ cp apps/web/.env.example apps/web/.env
 | `NEXT_PUBLIC_CONTACTS_ENABLED` | No | Enable contacts feature | `false` |
 | `NEXT_PUBLIC_EMAIL_SEND_ENABLED` | No | Enable email sending | `true` |
 | `NEXT_PUBLIC_BYPASS_PREMIUM_CHECKS` | No | Bypass premium checks (recommended for self-hosting) | `true` |
-| `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Requires QStash to be configured. | `false` |
+| `NEXT_PUBLIC_CLEANER_ENABLED` | No | Enable inbox cleaner feature for bulk email cleanup | `false` |
+| `NEXT_PUBLIC_DIGEST_ENABLED` | No | Enable email digest feature, which sends periodic summaries of emails. Requires QStash and Resend to be configured. | `false` |
 | `NEXT_PUBLIC_MEETING_BRIEFS_ENABLED` | No | Enable meeting briefs, which automatically sends pre-meeting briefings to users. Requires the meeting briefs cron job to be running. | `false` |
 | `NEXT_PUBLIC_INTEGRATIONS_ENABLED` | No | Enable the integrations feature, allowing users to connect external services. | `false` |
+| **Email Open Tracking** ||||
+| `NEXT_PUBLIC_EMAIL_TRACKER_URL` | No | URL of your email tracker service (e.g., `https://t.yourdomain.com`) | — |
+| `NEXT_PUBLIC_EMAIL_TRACKER_API_KEY` | No | API key for authenticating with the email tracker service | — |
+| `EMAIL_TRACKING_ENABLED` | No | Server-side flag to enable email tracking pixel injection | `false` |
+| `EMAIL_TRACKER_API_URL` | No | Server-side URL for the email tracker API | — |
+| `EMAIL_TRACKER_API_KEY` | No | Server-side API key for the email tracker | — |
 | **Debugging** ||||
 | `LOG_ZOD_ERRORS` | No | Log Zod validation errors | — |
 | `ENABLE_DEBUG_LOGS` | No | Enable debug logging | `false` |

@@ -163,6 +163,84 @@ QSTASH_NEXT_SIGNING_KEY=your-next-signing-key
 
 Adding alternative scheduling backends (like Redis-based scheduling) for self-hosted users is on our roadmap.
 
+## Automatic Updates with Watchtower (Optional)
+
+[Watchtower](https://containrrr.dev/watchtower/) automatically updates your Docker containers when new images are available.
+
+Add Watchtower to your `docker-compose.yml`:
+
+```yaml
+services:
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup
+    restart: unless-stopped
+```
+
+Or run standalone:
+
+```bash
+docker run -d \
+  --name watchtower \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  containrrr/watchtower --interval 300 --cleanup
+```
+
+This checks for updates every 5 minutes and automatically restarts containers with new images.
+
+## Email Open Tracking (Optional)
+
+Track when recipients open your emails with invisible tracking pixels.
+
+### Prerequisites
+
+- A separate subdomain for the tracker (e.g., `t.yourdomain.com`)
+- The [email-tracker](https://github.com/infinitewatts/email-tracker) service running
+
+### Setup Email Tracker Service
+
+1. Clone and deploy the email tracker:
+
+```bash
+git clone https://github.com/infinitewatts/email-tracker.git
+cd email-tracker
+cp .env.example .env
+# Edit .env with your settings
+docker compose up -d
+```
+
+2. Configure your tracker `.env`:
+
+```env
+PORT=3001
+TRACKER_BASE_URL=https://t.yourdomain.com
+API_KEY=your-secret-api-key
+```
+
+### Connect to Inbox Zero
+
+Add these variables to your Inbox Zero `.env`:
+
+```env
+# Server-side (for injecting pixels into outgoing emails)
+EMAIL_TRACKING_ENABLED=true
+EMAIL_TRACKER_API_URL=https://t.yourdomain.com
+EMAIL_TRACKER_API_KEY=your-secret-api-key
+
+# Client-side (for displaying tracking status in UI)
+NEXT_PUBLIC_EMAIL_TRACKER_URL=https://t.yourdomain.com
+NEXT_PUBLIC_EMAIL_TRACKER_API_KEY=your-secret-api-key
+```
+
+### How It Works
+
+1. **Send Email** - Inbox Zero injects a 1x1 tracking pixel into outgoing emails
+2. **Recipient Opens** - Email client loads the invisible GIF from your tracker
+3. **Track Open** - Tracker logs timestamp, IP address, and user agent
+4. **View Status** - See open status in the email thread with eye icons
+
 ## Building from Source (Optional)
 
 If you prefer to build the image yourself instead of using the pre-built one:
