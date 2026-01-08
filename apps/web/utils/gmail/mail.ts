@@ -22,6 +22,7 @@ import {
 } from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { addTrackingToEmail, parseRecipients } from "@inboxzero/email-tracking";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -109,6 +110,14 @@ export async function sendEmailWithHtml(
 ) {
   ensureEmailSendingEnabled();
 
+  // Inject tracking pixel
+  const recipients = parseRecipients(body.to, body.cc, body.bcc);
+  const { html: trackedHtml, emailId } = await addTrackingToEmail(
+    body.messageHtml,
+    recipients,
+    body.subject,
+  );
+
   let messageText: string;
 
   try {
@@ -119,7 +128,7 @@ export async function sendEmailWithHtml(
     messageText = body.messageHtml.replace(/<[^>]*>/g, "");
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
+  const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText });
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({
       userId: "me",
@@ -129,6 +138,9 @@ export async function sendEmailWithHtml(
       },
     }),
   );
+
+  logger.info("Email sent with tracking", { emailId, to: body.to });
+
   return result;
 }
 
