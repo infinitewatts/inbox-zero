@@ -6,9 +6,10 @@ const isRedisConfigured = Boolean(
 );
 
 // No-op Redis client for when Upstash is not configured
+// Returns success values so code paths expecting Redis work correctly
 const noopRedis = {
   get: async () => null,
-  set: async () => null,
+  set: async () => "OK",
   del: async () => 0,
   expire: async () => 0,
   hget: async () => null,
