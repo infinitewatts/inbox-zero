@@ -190,6 +190,7 @@ export const env = createEnv({
     NEXT_PUBLIC_DIGEST_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_MEETING_BRIEFS_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_INTEGRATIONS_ENABLED: z.coerce.boolean().optional(),
+    NEXT_PUBLIC_CLEANER_ENABLED: z.coerce.boolean().optional(),
     NEXT_PUBLIC_IS_RESEND_CONFIGURED: z.coerce.boolean().optional(),
 
     // Email open tracking
@@ -256,6 +257,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_MEETING_BRIEFS_ENABLED,
     NEXT_PUBLIC_INTEGRATIONS_ENABLED:
       process.env.NEXT_PUBLIC_INTEGRATIONS_ENABLED,
+    NEXT_PUBLIC_CLEANER_ENABLED: process.env.NEXT_PUBLIC_CLEANER_ENABLED,
     NEXT_PUBLIC_IS_RESEND_CONFIGURED:
       process.env.NEXT_PUBLIC_IS_RESEND_CONFIGURED,
 
