@@ -66,7 +66,8 @@ function getFirstName(email: string): string {
 
 function getTrackingIdFromMessage(message: ParsedMessage): string | null {
   // Check for our custom tracking header
-  const trackingId = message.headers["x-inbox-zero-tracking-id"];
+  const headers = message.headers as Record<string, string | undefined>;
+  const trackingId = headers["x-inbox-zero-tracking-id"];
   if (trackingId) return trackingId;
 
   // Fallback: try to extract from tracking pixel in HTML
