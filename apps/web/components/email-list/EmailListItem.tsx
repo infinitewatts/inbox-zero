@@ -1,6 +1,5 @@
 import {
   type ForwardedRef,
-  type MouseEventHandler,
   forwardRef,
   useCallback,
   useMemo,
@@ -29,7 +28,7 @@ export const EmailListItem = forwardRef(
       opened: boolean;
       selected: boolean;
       splitView: boolean;
-      onClick: MouseEventHandler<HTMLLIElement>;
+      onClick: () => void;
       closePanel: () => void;
       onSelected: (id: string) => void;
       onPlanAiAction: (thread: Thread) => void;
@@ -76,11 +75,11 @@ export const EmailListItem = forwardRef(
             "bg-slate-100 dark:bg-background":
               !isUnread && !props.selected && !props.opened,
           })}
-          onClick={props.onClick}
+          onClick={() => props.onClick()}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              props.onClick(e as any);
+              props.onClick();
             }
           }}
         >

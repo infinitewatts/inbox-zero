@@ -37,8 +37,12 @@ export default function Mail(props: {
       query.nextPageToken = previousPageData.nextPageToken;
     }
 
-    // biome-ignore lint/suspicious/noExplicitAny: params
-    const queryParams = new URLSearchParams(query as any);
+    const queryParams = new URLSearchParams();
+    if (query.labelId) queryParams.set("labelId", query.labelId);
+    if (query.type) queryParams.set("type", query.type);
+    if (query.nextPageToken) {
+      queryParams.set("nextPageToken", query.nextPageToken);
+    }
 
     return `/api/threads?${queryParams.toString()}`;
   };

@@ -21,7 +21,7 @@ export type BatchError = {
   error: {
     code: number;
     message: string;
-    errors: any[][];
+    errors: Array<{ message?: string; reason?: string; domain?: string }>;
     status: string;
   };
 };

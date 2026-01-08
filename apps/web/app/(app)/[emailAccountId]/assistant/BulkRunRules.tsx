@@ -314,11 +314,18 @@ async function onRun(
         ...(nextPageToken ? { nextPageToken } : {}),
       };
 
+      const queryParams = new URLSearchParams();
+      if (query.type) queryParams.set("type", query.type);
+      if (query.limit) queryParams.set("limit", String(query.limit));
+      if (query.after) queryParams.set("after", query.after.toISOString());
+      if (query.before) queryParams.set("before", query.before.toISOString());
+      if (query.isUnread) queryParams.set("isUnread", String(query.isUnread));
+      if (query.nextPageToken) {
+        queryParams.set("nextPageToken", query.nextPageToken);
+      }
+
       const res = await fetchWithAccount({
-        url: `/api/threads?${
-          // biome-ignore lint/suspicious/noExplicitAny: simplest
-          new URLSearchParams(query as any).toString()
-        }`,
+        url: `/api/threads?${queryParams.toString()}`,
         emailAccountId,
       });
 

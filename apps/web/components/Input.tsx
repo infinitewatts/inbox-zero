@@ -12,7 +12,7 @@ export interface InputProps {
   labelComponent?: React.ReactNode;
   type: HTMLInputTypeAttribute;
   placeholder?: string;
-  registerProps?: any; // TODO
+  registerProps?: Record<string, unknown>; // TODO
   explainText?: string;
   tooltipText?: string;
   as?: React.ElementType;
@@ -31,6 +31,20 @@ export interface InputProps {
   onClickRemove?: () => void;
 }
 
+type InputElementProps = Record<string, unknown> & {
+  type: HTMLInputTypeAttribute;
+  name: string;
+  id: string;
+  placeholder?: string;
+  minRows?: number;
+  maxRows?: number;
+  rows?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+};
+
 export const Input = (props: InputProps) => {
   const Component = props.autosizeTextarea
     ? TextareaAutosize
@@ -38,7 +52,7 @@ export const Input = (props: InputProps) => {
 
   const errorMessage = getErrorMessage(props.error?.type, props.error?.message);
 
-  const inputProps = {
+  const inputProps: InputElementProps = {
     type: props.type,
     name: props.name,
     id: props.name,
@@ -145,7 +159,7 @@ export const ErrorMessage = (props: { message: string }) => {
 
 const InputWithLeftFixedText = (props: {
   leftText: string;
-  inputProps: any;
+  inputProps: InputElementProps;
   className?: string;
 }) => {
   return (
@@ -166,7 +180,7 @@ const InputWithLeftFixedText = (props: {
 
 const InputWithRightFixedText = (props: {
   rightText: string;
-  inputProps: any;
+  inputProps: InputElementProps;
   className?: string;
 }) => {
   return (

@@ -11,6 +11,10 @@ export default function NoReplyPage() {
     NoReplyResponse,
     { error: string }
   >("/api/user/no-reply");
+  const threads = data?.map((item) => ({
+    ...item.thread,
+    plan: null,
+  }));
 
   return (
     <div>
@@ -21,7 +25,7 @@ export default function NoReplyPage() {
         {data && (
           <div>
             <EmailList
-              threads={data as any}
+              threads={threads ?? []}
               hideActionBarWhenEmpty
               refetch={() => mutate()}
             />

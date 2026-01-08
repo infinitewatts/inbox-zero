@@ -9,6 +9,7 @@ import {
 } from "@/utils/actions/mail";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
 import { useAtomValue } from "jotai";
+import { createClientLogger } from "@/utils/logger-client";
 
 type ActionType = "archive" | "delete" | "markRead";
 
@@ -22,6 +23,8 @@ type QueueState = {
   activeThreads: Record<`${ActionType}-${string}`, QueueItem>;
   totalThreads: number;
 };
+
+const logger = createClientLogger("archive-queue");
 
 // some users were somehow getting null for activeThreads, this should fix it
 const createStorage = () => {
@@ -51,13 +54,15 @@ export function useQueueState() {
   return useAtomValue(queueAtom);
 }
 
+type ActionResult = { serverError?: string; error?: string } | undefined;
+
 type ActionFunction = ({
   threadId,
   labelId,
 }: {
   threadId: string;
   labelId?: string;
-}) => Promise<any>;
+}) => Promise<ActionResult>;
 
 const addThreadsToQueue = ({
   actionType,
@@ -197,10 +202,11 @@ export function processQueue({
           try {
             await pRetry(
               async (attemptCount) => {
-                // biome-ignore lint/suspicious/noConsole: frontend
-                console.log(
-                  `Queue: ${actionType}. Processing ${threadId}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
-                );
+                logger.info("Queue task", {
+                  actionType,
+                  threadId,
+                  attemptCount,
+                });
 
                 const result = await actionMap[actionType]({
                   threadId,

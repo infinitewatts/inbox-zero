@@ -101,7 +101,7 @@ function ModelSectionForm(props: {
     [refetchUser],
   );
 
-  const globalError = (errors as any)[""];
+  const globalError = errors.root;
 
   const modelSelectOptions =
     aiProvider === Provider.OPEN_AI && watch("aiApiKey")

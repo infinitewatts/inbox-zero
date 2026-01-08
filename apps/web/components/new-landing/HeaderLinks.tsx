@@ -152,7 +152,7 @@ function EnhancedListItem({
   ...props
 }: React.ComponentPropsWithoutRef<"li"> & {
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   iconColor: string;
   gradient: string;
   borderColor: string;

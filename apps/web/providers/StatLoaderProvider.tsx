@@ -11,6 +11,9 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { isError } from "@/utils/error";
 import { loadEmailStatsAction } from "@/utils/actions/stats";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { createClientLogger } from "@/utils/logger-client";
+
+const logger = createClientLogger("stat-loader");
 
 type Context = {
   isLoading: boolean;
@@ -89,7 +92,7 @@ export function StatLoaderProvider(props: { children: React.ReactNode }) {
       const batchSize = 50;
       for (let i = 0; i < batchSize; i++) {
         if (stopLoading) break;
-        console.log("Loading batch", i);
+        logger.info("Loading batch", { batch: i });
         await onLoad({
           ...options,
           showToast: options.showToast && i === batchSize - 1,

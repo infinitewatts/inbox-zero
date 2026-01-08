@@ -23,8 +23,7 @@ export interface RowProps {
 
   onOpenNewsletter: (row: Newsletter) => void;
   labels: EmailLabel[];
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
-  mutate: () => Promise<any>;
+  mutate: () => Promise<unknown>;
   selected: boolean;
   onSelectRow: () => void;
   onDoubleClick: () => void;

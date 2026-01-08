@@ -23,6 +23,10 @@ export type EmailLabel = {
 
 export type EmailLabels = Record<string, EmailLabel>;
 
+type LabelWithColor = {
+  color?: EmailLabel["color"] | string;
+};
+
 interface Context {
   userLabels: EmailLabels;
   labelsIsLoading: boolean;
@@ -35,7 +39,10 @@ const EmailContext = createContext<Context>({
 
 export const useEmail = () => useContext<Context>(EmailContext);
 
-function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
+function mapLabelColor(
+  provider: string,
+  label: LabelWithColor,
+): EmailLabel["color"] {
   if (!provider) {
     return undefined;
   }

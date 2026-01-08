@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const saveOnboardingAnswersBody = z.object({
   surveyId: z.string().optional(),
-  questions: z.any(),
-  answers: z.any(),
+  questions: z.unknown(),
+  answers: z.unknown(),
 });
 
 export const stepWhoSchema = z.object({

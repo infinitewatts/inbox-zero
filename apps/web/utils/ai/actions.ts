@@ -25,7 +25,7 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type">>> = (options: {
   emailAccountId: string;
   executedRule: ExecutedRule;
   logger: Logger;
-}) => Promise<any>;
+}) => Promise<unknown>;
 
 export const runActionFunction = async (options: {
   client: EmailProvider;

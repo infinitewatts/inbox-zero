@@ -26,7 +26,7 @@ export const saveOnboardingAnswersAction = actionClientUser
       parsedInput: { surveyId, questions, answers },
       ctx: { userId, userEmail, logger },
     }) => {
-      function extractSurveyAnswers(questions: any[], answers: any) {
+      function extractSurveyAnswers(questions: unknown, answers: unknown) {
         const result: {
           surveyFeatures?: string[];
           surveyRole?: string;
@@ -36,18 +36,28 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyImprovements?: string;
         } = {};
 
-        if (!questions || !answers) return result;
+        const questionList = Array.isArray(questions) ? questions : [];
+        const answerRecord =
+          answers && typeof answers === "object"
+            ? (answers as Record<string, unknown>)
+            : null;
+
+        if (!questionList.length || !answerRecord) return result;
 
         // Helper to get answer by question key
         const getAnswerByKey = (key: string) => {
-          const questionIndex = questions.findIndex((q) => q.key === key);
+          const questionIndex = questionList.findIndex((question) => {
+            if (!question || typeof question !== "object") return false;
+            const record = question as Record<string, unknown>;
+            return record.key === key;
+          });
           if (questionIndex === -1) return null;
 
           const answerKey =
             questionIndex === 0
               ? "$survey_response"
               : `$survey_response_${questionIndex}`;
-          const answer = answers[answerKey];
+          const answer = answerRecord[answerKey];
 
           return answer && answer !== "" ? answer : null;
         };
@@ -66,7 +76,10 @@ export const saveOnboardingAnswersAction = actionClientUser
             }
           } else if (Array.isArray(featuresAnswer)) {
             const features = featuresAnswer.filter(
-              (f) => f && f !== "undefined",
+              (feature): feature is string =>
+                typeof feature === "string" &&
+                feature !== "undefined" &&
+                feature.trim().length > 0,
             );
             if (features.length > 0) {
               result.surveyFeatures = features;
@@ -76,30 +89,40 @@ export const saveOnboardingAnswersAction = actionClientUser
 
         // Extract other single choice/text answers - only set if not undefined/null/empty
         const roleAnswer = getAnswerByKey("role");
-        if (roleAnswer && roleAnswer !== "undefined") {
+        if (typeof roleAnswer === "string" && roleAnswer !== "undefined") {
           result.surveyRole = roleAnswer;
         }
 
         const goalAnswer = getAnswerByKey("goal");
-        if (goalAnswer && goalAnswer !== "undefined") {
+        if (typeof goalAnswer === "string" && goalAnswer !== "undefined") {
           result.surveyGoal = goalAnswer;
         }
 
         const companySizeAnswer = getAnswerByKey("company_size");
-        if (companySizeAnswer && companySizeAnswer !== "undefined") {
-          const numericValue = Number(companySizeAnswer);
+        if (
+          companySizeAnswer !== null &&
+          companySizeAnswer !== "undefined" &&
+          companySizeAnswer !== undefined
+        ) {
+          const numericValue =
+            typeof companySizeAnswer === "number"
+              ? companySizeAnswer
+              : Number(companySizeAnswer);
           if (!Number.isNaN(numericValue)) {
             result.surveyCompanySize = numericValue;
           }
         }
 
         const sourceAnswer = getAnswerByKey("source");
-        if (sourceAnswer && sourceAnswer !== "undefined") {
+        if (typeof sourceAnswer === "string" && sourceAnswer !== "undefined") {
           result.surveySource = sourceAnswer;
         }
 
         const improvementsAnswer = getAnswerByKey("improvements");
-        if (improvementsAnswer && improvementsAnswer !== "undefined") {
+        if (
+          typeof improvementsAnswer === "string" &&
+          improvementsAnswer !== "undefined"
+        ) {
           result.surveyImprovements = improvementsAnswer;
         }
 

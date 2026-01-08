@@ -5,8 +5,8 @@
  * (e.g., filter, category, etc.)
  */
 export function isAlreadyExistsError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
-  const errorMessage = (error as any)?.message || "";
+  const errorMessage =
+    error instanceof Error ? error.message : typeof error === "string" ? error : "";
   return (
     errorMessage.includes("already exists") ||
     errorMessage.includes("duplicate") ||

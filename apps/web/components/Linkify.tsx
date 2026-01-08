@@ -1,13 +1,16 @@
+import type { ReactNode } from "react";
 import LinkifyReact from "linkify-react";
 import Link from "next/link";
 
-const renderLink = ({
-  attributes,
-  content,
-}: {
-  attributes: any;
-  content: any;
-}) => {
+type LinkifyRenderProps = {
+  attributes: {
+    href: string;
+    [key: string]: string | number | boolean | undefined;
+  };
+  content: ReactNode;
+};
+
+const renderLink = ({ attributes, content }: LinkifyRenderProps) => {
   const { href, ...props } = attributes;
 
   return (
@@ -22,7 +25,7 @@ const renderLink = ({
   );
 };
 
-export function Linkify(props: { children: React.ReactNode }) {
+export function Linkify(props: { children: ReactNode }) {
   return (
     <LinkifyReact options={{ render: renderLink }}>
       {props.children}

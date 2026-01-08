@@ -14,6 +14,18 @@ export type OutlookFolder = {
   childFolderCount?: number;
 };
 
+function getOutlookErrorInfo(error: unknown): {
+  code?: string;
+  statusCode?: number;
+} {
+  if (!error || typeof error !== "object") return {};
+  const record = error as Record<string, unknown>;
+  const code = typeof record.code === "string" ? record.code : undefined;
+  const statusCode =
+    typeof record.statusCode === "number" ? record.statusCode : undefined;
+  return { code, statusCode };
+}
+
 function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
   return {
     id: folder.id ?? "",
@@ -193,9 +205,8 @@ export async function getOrCreateOutlookFolderIdByName(
   } catch (error) {
     // If folder already exists (race condition or created between check and create),
     // fetch folders again and return the existing folder ID
-    // biome-ignore lint/suspicious/noExplicitAny: simplest
-    const err = error as any;
-    if (err?.code === "ErrorFolderExists" || err?.statusCode === 409) {
+    const { code, statusCode } = getOutlookErrorInfo(error);
+    if (code === "ErrorFolderExists" || statusCode === 409) {
       logger.info("Folder already exists, fetching existing folder", {
         folderName,
       });

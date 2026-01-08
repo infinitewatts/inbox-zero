@@ -566,8 +566,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   onOpenNewsletter: (row: T) => void;
   refetchPremium: () => Promise<UserResponse | null | undefined>;
   hasUnsubscribeAccess: boolean;
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
-  mutate: () => Promise<any>;
+  mutate: () => Promise<unknown>;
   emailAccountId: string;
   userEmail: string;
 }) {

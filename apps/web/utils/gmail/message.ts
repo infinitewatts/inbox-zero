@@ -143,7 +143,7 @@ export async function getMessagesBatch({
     .map((message, i) => {
       if (isBatchError(message)) {
         const { code, message: errorMessage, errors } = message.error;
-        const reason = (errors?.[0] as any)?.reason;
+        const reason = errors?.[0]?.reason;
 
         const { retryable } = isRetryableError({
           status: code,

@@ -13,6 +13,17 @@ type AuthOptions = {
   expiresAt?: number | null;
 };
 
+const getErrorDescription = (error: unknown): string | undefined => {
+  if (!error || typeof error !== "object") return undefined;
+  const record = error as Record<string, unknown>;
+  const response = record.response;
+  if (!response || typeof response !== "object") return undefined;
+  const data = (response as Record<string, unknown>).data;
+  if (!data || typeof data !== "object") return undefined;
+  const description = (data as Record<string, unknown>).error_description;
+  return typeof description === "string" ? description : undefined;
+};
+
 const getAuth = ({
   accessToken,
   refreshToken,
@@ -97,7 +108,7 @@ export const getGmailClientWithRefresh = async ({
       logger.warn("Error refreshing Gmail access token", {
         emailAccountId,
         error: error.message,
-        errorDescription: (error as any).response?.data?.error_description,
+        errorDescription: getErrorDescription(error),
       });
     }
 
@@ -118,8 +129,12 @@ export const getContactsClient = ({
 };
 
 export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
-  const accessToken = (client.context._options.auth as any).credentials
-    .access_token;
+  const auth = client.context._options.auth;
+  const credentials =
+    auth && typeof auth === "object" && "credentials" in auth
+      ? (auth as { credentials?: { access_token?: string } }).credentials
+      : undefined;
+  const accessToken = credentials?.access_token;
   if (!accessToken) throw new Error("No access token");
   return accessToken;
 };

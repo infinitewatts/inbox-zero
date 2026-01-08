@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
-import { captureException } from "@/utils/error";
+import { captureException, getErrorStatusCode } from "@/utils/error";
 import {
   HistoryEventType,
   type ProcessHistoryOptions,
@@ -255,15 +255,7 @@ const isInboxOrSentMessage = (message: {
 };
 
 function isHistoryIdExpiredError(error: unknown): boolean {
-  // biome-ignore lint/suspicious/noExplicitAny: simple
-  const err = error as any;
-  const statusCode =
-    err.response?.data?.error?.code ??
-    err.response?.status ??
-    err.status ??
-    err.code;
-
-  return statusCode === 404;
+  return getErrorStatusCode(error) === 404;
 }
 
 /**

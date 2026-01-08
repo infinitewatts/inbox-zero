@@ -20,7 +20,7 @@ export type SelectModel = {
   provider: string;
   modelName: string;
   model: LanguageModelV2;
-  providerOptions?: Record<string, any>;
+  providerOptions?: Record<string, unknown>;
   backupModel: LanguageModelV2 | null;
 };
 
@@ -68,7 +68,7 @@ function selectModel(
     aiModel: string | null;
     aiApiKey: string | null;
   },
-  providerOptions?: Record<string, any>,
+  providerOptions?: Record<string, unknown>,
   online = false,
 ): SelectModel {
   switch (aiProvider) {
@@ -199,7 +199,7 @@ function selectModel(
  */
 function createOpenRouterProviderOptions(
   providers: string,
-): Record<string, any> {
+): Record<string, unknown> {
   const order = providers
     .split(",")
     .map((p: string) => p.trim())
@@ -234,7 +234,7 @@ function selectEconomyModel(userAi: UserAIFields, online = false): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for economy
-    let providerOptions: Record<string, any> | undefined;
+    let providerOptions: Record<string, unknown> | undefined;
     if (
       env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
       env.ECONOMY_OPENROUTER_PROVIDERS
@@ -272,7 +272,7 @@ function selectChatModel(userAi: UserAIFields, online = false): SelectModel {
     }
 
     // Configure OpenRouter provider options if using OpenRouter for chat
-    let providerOptions: Record<string, any> | undefined;
+    let providerOptions: Record<string, unknown> | undefined;
     if (
       env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
       env.CHAT_OPENROUTER_PROVIDERS
@@ -301,7 +301,7 @@ function selectDefaultModel(userAi: UserAIFields, online = false): SelectModel {
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
-  const providerOptions: Record<string, any> = {};
+  const providerOptions: Record<string, unknown> = {};
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice

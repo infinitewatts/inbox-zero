@@ -13,19 +13,22 @@ import { env } from "@/env";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
+const logger = createScopedLogger("safe-action");
+
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
   },
   defaultValidationErrorsShape: "flattened",
   handleServerError(error, { metadata, ctx, bindArgsClientInputs }) {
-    const context = ctx as {
-      userId?: string;
-      userEmail?: string;
-      emailAccountId?: string;
-    };
-
-    const logger = createScopedLogger("safe-action");
+    const context =
+      ctx && typeof ctx === "object"
+        ? (ctx as {
+            userId?: string;
+            userEmail?: string;
+            emailAccountId?: string;
+          })
+        : undefined;
     logger.error("Server action error:", {
       metadata,
       userId: context?.userId,

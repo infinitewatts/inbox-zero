@@ -184,8 +184,21 @@ export function BulkUnsubscribe() {
     ...getDateRangeParams(dateRange),
     ...(search ? { search } : {}),
   };
-  // biome-ignore lint/suspicious/noExplicitAny: simplest
-  const urlParams = new URLSearchParams(params as any);
+  const urlParams = new URLSearchParams();
+  urlParams.set("types", params.types.join(","));
+  if (params.filters?.length) {
+    urlParams.set("filters", params.filters.join(","));
+  }
+  if (params.orderBy) urlParams.set("orderBy", params.orderBy);
+  if (params.orderDirection)
+    urlParams.set("orderDirection", params.orderDirection);
+  if (params.limit) urlParams.set("limit", String(params.limit));
+  if (params.includeMissingUnsubscribe) {
+    urlParams.set("includeMissingUnsubscribe", "true");
+  }
+  if (params.fromDate) urlParams.set("fromDate", String(params.fromDate));
+  if (params.toDate) urlParams.set("toDate", String(params.toDate));
+  if (params.search) urlParams.set("search", params.search);
   const { data, isLoading, error, mutate } = useSWR<
     NewsletterStatsResponse,
     { error: string }

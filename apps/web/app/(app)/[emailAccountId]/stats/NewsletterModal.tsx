@@ -36,7 +36,7 @@ export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "unsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
-  mutate: () => Promise<any>;
+  mutate: () => Promise<unknown>;
 }) {
   const { newsletter, refreshInterval, onClose, mutate } = props;
 
@@ -127,13 +127,19 @@ function useSenderEmails(props: {
   refreshInterval?: number;
 }) {
   const params: SenderEmailsQuery = {
-    ...props,
+    fromEmail: props.fromEmail,
+    period: props.period,
     ...getDateRangeParams(props.dateRange),
   };
+  const searchParams = new URLSearchParams();
+  searchParams.set("fromEmail", params.fromEmail);
+  searchParams.set("period", params.period);
+  if (params.fromDate) searchParams.set("fromDate", String(params.fromDate));
+  if (params.toDate) searchParams.set("toDate", String(params.toDate));
   const { data, isLoading, error } = useSWR<
     SenderEmailsResponse,
     { error: string }
-  >(`/api/user/stats/sender-emails/?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/sender-emails/?${searchParams.toString()}`, {
     refreshInterval: props.refreshInterval,
   });
 

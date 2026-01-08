@@ -6,6 +6,20 @@ import type { Logger } from "@/utils/logger";
 import { convertMessage, createMessagesRequest } from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
+function getOutlookErrorInfo(error: unknown): {
+  message?: string;
+  code?: string;
+  statusCode?: number;
+} {
+  const message = error instanceof Error ? error.message : undefined;
+  if (!error || typeof error !== "object") return { message };
+  const record = error as Record<string, unknown>;
+  const code = typeof record.code === "string" ? record.code : undefined;
+  const statusCode =
+    typeof record.statusCode === "number" ? record.statusCode : undefined;
+  return { message, code, statusCode };
+}
+
 export async function getThread(
   threadId: string,
   client: OutlookClient,
@@ -31,14 +45,14 @@ export async function getThread(
       return dateB - dateA; // desc order (newest first)
     });
   } catch (error) {
-    const err = error as any;
+    const { message, code, statusCode } = getOutlookErrorInfo(error);
 
     logger.error("getThread failed", {
       threadId,
       filter,
-      error: error instanceof Error ? error.message : err,
-      errorCode: err?.code,
-      errorStatusCode: err?.statusCode,
+      error: message,
+      errorCode: code,
+      errorStatusCode: statusCode,
     });
     throw error;
   }

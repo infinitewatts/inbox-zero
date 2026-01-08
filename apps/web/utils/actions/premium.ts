@@ -310,13 +310,33 @@ export const adminChangePremiumStatusAction = adminActionClient
           );
           if (!subscription) throw new SafeError("Subscription not found");
           lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
-          const attributes = subscription.attributes as any;
-          lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
-          lemonSqueezyProductId = Number.parseInt(attributes.product_id);
-          lemonSqueezyVariantId = Number.parseInt(attributes.variant_id);
-          lemonSqueezySubscriptionItemId = attributes.first_subscription_item.id
-            ? Number.parseInt(attributes.first_subscription_item.id)
-            : null;
+          type LemonSubscriptionAttributes = {
+            order_id?: string | number;
+            product_id?: string | number;
+            variant_id?: string | number;
+            first_subscription_item?: { id?: string | number | null };
+          };
+
+          const attributes =
+            subscription.attributes as LemonSubscriptionAttributes;
+
+          const toNullableNumber = (value: unknown) => {
+            if (typeof value === "number" && Number.isFinite(value)) {
+              return value;
+            }
+            if (typeof value === "string" && value.trim().length > 0) {
+              const parsed = Number.parseInt(value, 10);
+              return Number.isNaN(parsed) ? null : parsed;
+            }
+            return null;
+          };
+
+          lemonSqueezyOrderId = toNullableNumber(attributes.order_id);
+          lemonSqueezyProductId = toNullableNumber(attributes.product_id);
+          lemonSqueezyVariantId = toNullableNumber(attributes.variant_id);
+          lemonSqueezySubscriptionItemId = toNullableNumber(
+            attributes.first_subscription_item?.id,
+          );
         }
 
         const getRenewsAt = (period: PremiumTier): Date | null => {

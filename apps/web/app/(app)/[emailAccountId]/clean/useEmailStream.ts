@@ -1,9 +1,11 @@
-/** biome-ignore-all lint/suspicious/noConsole: helpful for debugging till feature is fully live */
 "use client";
 
 import keyBy from "lodash/keyBy";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CleanThread } from "@/utils/redis/clean.types";
+import { createClientLogger } from "@/utils/logger-client";
+
+const logger = createClientLogger("email-stream");
 
 export function useEmailStream(
   emailAccountId: string,
@@ -28,7 +30,7 @@ export function useEmailStream(
   const connectToSSE = useCallback(() => {
     try {
       if (isPaused) {
-        console.log("SSE paused - closing connection if exists");
+        logger.info("SSE paused - closing connection if exists");
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
           eventSourceRef.current = null;
@@ -39,7 +41,7 @@ export function useEmailStream(
       if (eventSourceRef.current) return;
 
       if (!emailAccountId) {
-        console.error("Email account ID is missing, cannot connect to SSE.");
+        logger.error("Email account ID is missing, cannot connect to SSE.");
         return;
       }
 
@@ -85,12 +87,12 @@ export function useEmailStream(
             return prev;
           });
         } catch (error) {
-          console.error("Error processing thread:", error);
+          logger.error("Error processing thread", { error });
         }
       });
 
       eventSource.onerror = (error) => {
-        console.error("SSE connection error:", error);
+        logger.error("SSE connection error", { error });
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
           eventSourceRef.current = null;
@@ -98,23 +100,23 @@ export function useEmailStream(
 
         // Attempt to reconnect after a short delay if not paused
         if (!isPaused) {
-          console.log("Attempting to reconnect in 2 seconds...");
+          logger.info("Attempting to reconnect in 2 seconds...");
           setTimeout(connectToSSE, 2000);
         }
       };
     } catch (error) {
-      console.error("Error establishing SSE connection:", error);
+      logger.error("Error establishing SSE connection", { error });
     }
   }, [isPaused, emailOrder, emailAccountId]);
 
   // Connect or disconnect based on pause state
   useEffect(() => {
-    console.log("SSE effect triggered, isPaused:", isPaused);
+    logger.info("SSE effect triggered", { isPaused });
     connectToSSE();
 
     // Cleanup
     return () => {
-      console.log("Cleaning up SSE connection");
+      logger.info("Cleaning up SSE connection");
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;

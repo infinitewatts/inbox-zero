@@ -68,6 +68,23 @@ import { extractSignatureFromHtml } from "@/utils/email/signature-extraction";
 import { moveMessagesForSenders } from "@/utils/outlook/batch";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
+function getErrorInfo(error: unknown): {
+  message?: string;
+  code?: string | number;
+  statusCode?: number;
+} {
+  const message = error instanceof Error ? error.message : undefined;
+  if (!error || typeof error !== "object") return { message };
+  const record = error as Record<string, unknown>;
+  const code =
+    typeof record.code === "string" || typeof record.code === "number"
+      ? record.code
+      : undefined;
+  const statusCode =
+    typeof record.statusCode === "number" ? record.statusCode : undefined;
+  return { message, code, statusCode };
+}
+
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
   private readonly client: OutlookClient;
@@ -113,10 +130,11 @@ export class OutlookProvider implements EmailProvider {
         snippet: messages[0]?.snippet || "",
       };
     } catch (error) {
+      const { code } = getErrorInfo(error);
       this.logger.error("getThread failed", {
         threadId,
         error,
-        errorCode: (error as any)?.code,
+        errorCode: code,
       });
       throw error;
     }
@@ -151,11 +169,11 @@ export class OutlookProvider implements EmailProvider {
       const message = await getMessage(messageId, this.client, this.logger);
       return message;
     } catch (error) {
-      const err = error as any;
+      const { code } = getErrorInfo(error);
       this.logger.error("getMessage failed", {
         messageId,
         error,
-        errorCode: err?.code,
+        errorCode: code,
       });
       throw error;
     }
@@ -614,11 +632,11 @@ export class OutlookProvider implements EmailProvider {
       );
       return messages;
     } catch (error) {
-      const err = error as any;
+      const { code } = getErrorInfo(error);
       this.logger.error("getThreadMessages failed", {
         threadId,
         error,
-        errorCode: err?.code,
+        errorCode: code,
       });
       throw error;
     }
@@ -1034,12 +1052,13 @@ export class OutlookProvider implements EmailProvider {
           snippet: messages[0]?.snippet || "",
         });
       } catch (error) {
+        const { code, statusCode } = getErrorInfo(error);
         this.logger.warn("Failed to fetch thread messages for conversationId", {
           conversationId,
           participantEmail,
           error,
-          errorCode: (error as any)?.code,
-          errorStatusCode: (error as any)?.statusCode,
+          errorCode: code,
+          errorStatusCode: statusCode,
         });
       }
     }

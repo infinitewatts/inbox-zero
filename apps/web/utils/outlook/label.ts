@@ -103,8 +103,10 @@ export async function createLabel({
     return response;
   } catch (error) {
     let { errorMessage } = extractErrorInfo(error);
-    if (!errorMessage)
-      errorMessage = (error as any)?.message || "Unknown error";
+    if (!errorMessage) {
+      errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+    }
     if (
       errorMessage.includes("already exists") ||
       errorMessage.includes("conflict with the current state")

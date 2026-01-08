@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps, ComponentType } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -12,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 type NavItem = {
   name: string;
   href: string;
-  icon: LucideIcon | ((props: any) => React.ReactNode);
+  icon: LucideIcon | ComponentType<ComponentProps<"svg">>;
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;

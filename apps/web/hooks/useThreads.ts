@@ -22,7 +22,10 @@ export function useThreads({
   if (limit) query.limit = limit;
   if (type) query.type = type;
 
-  // biome-ignore lint/suspicious/noExplicitAny: params
-  const url = `/api/threads?${new URLSearchParams(query as any).toString()}`;
+  const queryParams = new URLSearchParams();
+  if (query.fromEmail) queryParams.set("fromEmail", query.fromEmail);
+  if (query.limit) queryParams.set("limit", String(query.limit));
+  if (query.type) queryParams.set("type", query.type);
+  const url = `/api/threads?${queryParams.toString()}`;
   return useSWR<ThreadsResponse>(url, { refreshInterval });
 }

@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import { parseMessage } from "@/utils/gmail/message";
 import type { MessageWithPayload } from "@/utils/types";
-import { isGmailError } from "@/utils/error";
+import { getErrorStatusCode, isGmailError } from "@/utils/error";
 import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/draft");
@@ -29,20 +29,7 @@ export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
 
 function isNotFoundError(error: unknown): boolean {
   if (isGmailError(error) && error.code === 404) return true;
-
-  // biome-ignore lint/suspicious/noExplicitAny: simple
-  const err = error as any;
-
-  const statusCode =
-    err.response?.data?.error?.code ??
-    err.response?.status ??
-    err.status ??
-    err.code ??
-    err.error?.response?.data?.error?.code ??
-    err.error?.response?.status ??
-    err.error?.status ??
-    err.error?.code;
-
+  const statusCode = getErrorStatusCode(error);
   return statusCode === 404;
 }
 

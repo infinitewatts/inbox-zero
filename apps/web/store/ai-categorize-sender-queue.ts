@@ -6,6 +6,7 @@ import { exponentialBackoff } from "@/utils/sleep";
 import { sleep } from "@/utils/sleep";
 import { categorizeSenderAction } from "@/utils/actions/categorize";
 import { aiQueue } from "@/utils/queue/ai-queue";
+import { createClientLogger } from "@/utils/logger-client";
 
 type CategorizationStatus = "pending" | "processing" | "completed";
 
@@ -15,6 +16,7 @@ interface QueueItem {
 }
 
 const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
+const logger = createClientLogger("ai-categorize-sender");
 
 export const pushToAiCategorizeSenderQueueAtom = ({
   pushIds,
@@ -78,10 +80,10 @@ function processAiCategorizeSenderQueue({
 
     await pRetry(
       async (attemptCount) => {
-        // biome-ignore lint/suspicious/noConsole: frontend
-        console.log(
-          `Queue: aiCategorizeSender. Processing ${sender}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
-        );
+        logger.info("Queue task", {
+          sender,
+          attemptCount,
+        });
 
         const result = await categorizeSenderAction(emailAccountId, {
           senderAddress: sender,

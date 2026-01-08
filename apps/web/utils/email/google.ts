@@ -86,6 +86,10 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  getClient() {
+    return this.client;
+  }
+
   toJSON() {
     return { name: this.name, type: "GmailProvider" };
   }

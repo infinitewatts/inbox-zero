@@ -4,6 +4,7 @@ import {
   startedTrial,
   cancelledPremium,
 } from "@inboxzero/loops";
+import type Stripe from "stripe";
 import type { Logger } from "@/utils/logger";
 
 export async function handleLoopsEvents({
@@ -19,7 +20,7 @@ export async function handleLoopsEvents({
     users: { email: string; name: string | null }[];
     admins: { email: string; name: string | null }[];
   } | null;
-  newSubscription: any;
+  newSubscription: Stripe.Subscription;
   newTier: string | null;
   logger: Logger;
 }) {

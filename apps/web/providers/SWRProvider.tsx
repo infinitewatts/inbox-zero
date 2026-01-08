@@ -17,6 +17,9 @@ import {
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import { prefixPath } from "@/utils/path";
+import { createClientLogger } from "@/utils/logger-client";
+
+const logger = createClientLogger("swr");
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -42,7 +45,7 @@ const fetcher = async (
     } catch {
       // Response wasn't JSON - common during dev HMR, unexpected in production
       if (process.env.NODE_ENV !== "development") {
-        console.error("Failed to parse error response as JSON", {
+        logger.warn("Failed to parse error response as JSON", {
           url,
           status: res.status,
           statusText: res.statusText,
@@ -70,7 +73,7 @@ const fetcher = async (
           },
         });
 
-        console.log(`${errorMessage}, redirecting to consent page...`);
+        logger.info("Redirecting to consent page", { errorMessage });
         const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
         window.location.href = redirectUrl;
         return;
@@ -157,7 +160,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
         value={{
           fetcher: enhancedFetcher,
           provider: () => provider,
-          onError: (error) => console.log("SWR error:", error),
+          onError: (error) => logger.error("SWR error", { error }),
           ...getDevOnlySWRConfig(),
         }}
       >

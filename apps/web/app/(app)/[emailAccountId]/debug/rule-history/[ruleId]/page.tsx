@@ -171,34 +171,58 @@ export default async function RuleHistoryPage(props: {
                     <div>
                       <h4 className="mb-1 font-semibold">Actions</h4>
                       <div className="space-y-1">
-                        {(history.actions as any[]).map(
-                          (action: any, index: number) => (
+                        {(Array.isArray(history.actions)
+                          ? history.actions
+                          : []
+                        ).map((action, index) => {
+                          const record =
+                            action && typeof action === "object"
+                              ? (action as Record<string, unknown>)
+                              : {};
+                          const type =
+                            typeof record.type === "string"
+                              ? record.type
+                              : "unknown";
+                          const label =
+                            typeof record.label === "string"
+                              ? record.label
+                              : null;
+                          const subject =
+                            typeof record.subject === "string"
+                              ? record.subject
+                              : null;
+                          const content =
+                            typeof record.content === "string"
+                              ? record.content
+                              : null;
+                          const to =
+                            typeof record.to === "string" ? record.to : null;
+
+                          return (
                             <div key={index} className="text-sm">
                               <Badge variant="secondary" className="mr-2">
-                                {action.type}
+                                {type}
                               </Badge>
-                              {action.label && (
+                              {label && (
                                 <span>
                                   {
                                     getEmailTerminology(
                                       rule.emailAccount.account.provider,
                                     ).label.action
                                   }
-                                  : {action.label}
+                                  : {label}
                                 </span>
                               )}
-                              {action.subject && (
-                                <span>Subject: {action.subject}</span>
-                              )}
-                              {action.content && (
+                              {subject && <span>Subject: {subject}</span>}
+                              {content && (
                                 <span>
-                                  Content: {action.content.substring(0, 50)}...
+                                  Content: {content.substring(0, 50)}...
                                 </span>
                               )}
-                              {action.to && <span>To: {action.to}</span>}
+                              {to && <span>To: {to}</span>}
                             </div>
-                          ),
-                        )}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

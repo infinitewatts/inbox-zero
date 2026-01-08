@@ -1,4 +1,6 @@
-export function Logo(props: any) {
+import type { SVGProps } from "react";
+
+export function Logo(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 355 47" fill="none" {...props}>
       <title>Inbox Zero</title>

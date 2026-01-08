@@ -6,7 +6,7 @@ import { APICallError, RetryError } from "ai";
 import type { FlattenedValidationErrors } from "next-safe-action";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 
-export type ErrorMessage = { error: string; data?: any };
+export type ErrorMessage = { error: string; data?: unknown };
 export type ZodError = {
   error: { issues: { code: string; message: string }[] };
 };
@@ -16,19 +16,38 @@ export type ApiErrorType = {
   code: number;
 };
 
-export function isError(value: any): value is ErrorMessage | ZodError {
-  return value?.error;
+type GmailErrorItem = { message?: string; reason?: string };
+export type GmailError = { code?: number; errors: GmailErrorItem[] };
+
+function getGmailErrors(error: unknown): GmailErrorItem[] | null {
+  const record = asRecord(error);
+  if (!record) return null;
+  const errors = record.errors;
+  if (!Array.isArray(errors) || errors.length === 0) return null;
+  const normalized = errors.filter(
+    (item) => typeof item === "object" && item !== null,
+  );
+  return normalized.length > 0 ? (normalized as GmailErrorItem[]) : null;
 }
 
-export function isGmailError(
-  error: unknown,
-): error is { code: number; errors: { message: string }[] } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    Array.isArray((error as any).errors) &&
-    (error as any).errors.length > 0
-  );
+export function isError(value: unknown): value is ErrorMessage | ZodError {
+  return typeof value === "object" && value !== null && "error" in value;
+}
+
+export function isGmailError(error: unknown): error is GmailError {
+  return getGmailErrors(error) !== null;
+}
+
+function getGmailErrorReason(error: unknown): string | null {
+  const errors = getGmailErrors(error);
+  const reason = errors?.[0]?.reason;
+  return typeof reason === "string" ? reason : null;
+}
+
+function getGmailErrorMessage(error: unknown): string | null {
+  const errors = getGmailErrors(error);
+  const message = errors?.[0]?.message;
+  return typeof message === "string" ? message : null;
 }
 
 export type CaptureExceptionContext = {
@@ -40,7 +59,7 @@ export type CaptureExceptionContext = {
   emailAccountId?: string | null;
   userId?: string | null;
   userEmail?: string;
-  extra?: Record<string, any>;
+  extra?: Record<string, unknown>;
   sampleRate?: number;
 };
 
@@ -98,15 +117,15 @@ export class SafeError extends Error {
 }
 
 export function isGmailInsufficientPermissionsError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "insufficientPermissions";
+  return getGmailErrorReason(error) === "insufficientPermissions";
 }
 
 export function isGmailRateLimitExceededError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "rateLimitExceeded";
+  return getGmailErrorReason(error) === "rateLimitExceeded";
 }
 
 export function isGmailQuotaExceededError(error: unknown): boolean {
-  return (error as any)?.errors?.[0]?.reason === "quotaExceeded";
+  return getGmailErrorReason(error) === "quotaExceeded";
 }
 
 export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
@@ -222,8 +241,7 @@ export function checkCommonErrors(
 
   if (isGmailRateLimitExceededError(error)) {
     logger.warn("Gmail rate limit exceeded for url", { url });
-    const errorMessage =
-      (error as any)?.errors?.[0]?.message ?? "Unknown error";
+    const errorMessage = getGmailErrorMessage(error) ?? "Unknown error";
     return {
       type: "Gmail Rate Limit Exceeded",
       message: `Gmail error: ${errorMessage}`,
@@ -276,6 +294,33 @@ export function getErrorMessage(error: unknown): string | undefined {
   if (!nested) return undefined;
 
   return getStringProp(nested, "message");
+}
+
+export function getErrorStatusCode(error: unknown): number | undefined {
+  const record = asRecord(error);
+  if (!record) return undefined;
+
+  const response = asRecord(record.response);
+  const responseData = response ? asRecord(response.data) : null;
+  const responseError = responseData ? asRecord(responseData.error) : null;
+
+  const nested = asRecord(record.error);
+  const nestedResponse = nested ? asRecord(nested.response) : null;
+  const nestedResponseData = nestedResponse ? asRecord(nestedResponse.data) : null;
+  const nestedResponseError = nestedResponseData
+    ? asRecord(nestedResponseData.error)
+    : null;
+
+  return (
+    getNumberProp(responseError, "code") ??
+    getNumberProp(response, "status") ??
+    getNumberProp(record, "status") ??
+    getNumberProp(record, "code") ??
+    getNumberProp(nestedResponseError, "code") ??
+    getNumberProp(nestedResponse, "status") ??
+    getNumberProp(nested, "status") ??
+    getNumberProp(nested, "code")
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -372,4 +417,18 @@ function getValidationMessages(
   const all = [...formErrors, ...Object.values(fieldErrors).flat()];
 
   return all.length > 0 ? all.join(". ") : null;
+}
+
+function getNumberProp(
+  obj: Record<string, unknown> | null,
+  key: string,
+): number | undefined {
+  if (!obj) return undefined;
+  const value = obj[key];
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  return undefined;
 }
