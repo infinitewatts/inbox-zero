@@ -68,12 +68,22 @@ const createRawMailMessage = async (
     messageText,
     attachments,
     replyToEmail,
+    trackingId,
   }: Omit<SendEmailBody, "attachments"> & {
     attachments?: Attachment[];
     messageText: string;
+    trackingId?: string;
   },
   from?: string,
 ) => {
+  const headers: Record<string, string> = {
+    "X-Mailer": "Inbox Zero Web",
+  };
+
+  if (trackingId) {
+    headers["X-Inbox-Zero-Tracking-Id"] = trackingId;
+  }
+
   return await createMail({
     from,
     to,
@@ -96,9 +106,7 @@ const createRawMailMessage = async (
       ? `${replyToEmail.references || ""} ${replyToEmail.headerMessageId}`.trim()
       : "",
     inReplyTo: replyToEmail ? replyToEmail.headerMessageId : "",
-    headers: {
-      "X-Mailer": "Inbox Zero Web",
-    },
+    headers,
   });
 };
 
@@ -128,7 +136,7 @@ export async function sendEmailWithHtml(
     messageText = body.messageHtml.replace(/<[^>]*>/g, "");
   }
 
-  const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText });
+  const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText, trackingId: emailId });
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({
       userId: "me",
