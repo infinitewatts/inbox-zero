@@ -14,8 +14,15 @@ import type { CreatePixelResponse, TrackingStatus } from "./types";
 const getTrackerUrl = () =>
   process.env.EMAIL_TRACKER_API_URL || "http://localhost:3001";
 
+const getApiKey = () => process.env.EMAIL_TRACKER_API_KEY || "";
+
 export const isTrackingEnabled = () =>
   process.env.EMAIL_TRACKING_ENABLED === "true";
+
+const getAuthHeaders = (): HeadersInit => {
+  const apiKey = getApiKey();
+  return apiKey ? { "X-API-Key": apiKey } : {};
+};
 
 /**
  * Create a tracking pixel for an email recipient
@@ -32,7 +39,7 @@ export async function createTrackingPixel(
   try {
     const response = await fetch(`${getTrackerUrl()}/api/pixels`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({ emailId, recipient, subject }),
     });
 
@@ -139,7 +146,8 @@ export async function getTrackingStatus(
 
   try {
     const response = await fetch(
-      `${getTrackerUrl()}/api/status/${encodeURIComponent(emailId)}`
+      `${getTrackerUrl()}/api/status/${encodeURIComponent(emailId)}`,
+      { headers: getAuthHeaders() }
     );
 
     if (!response.ok) {
