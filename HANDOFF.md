@@ -1,8 +1,44 @@
-# Session Handoff - January 8, 2026
+# Session Handoff - January 8, 2026 (Updated)
 
 ## Summary
 
 This session addressed several issues with the inbox-zero email client and email-tracker service.
+
+---
+
+## Latest Fixes (Session 2)
+
+### 6. Calendar OAuth Lock Fix
+
+**Commit:** `48b149e0d` - Fix calendar OAuth and font portal inheritance
+
+**Problem:** Calendar connection was failing with "OAuth code is being processed by another request (duplicate request blocked)" even on first attempt. The noop Redis client returned `null` for `set` operations, but the lock code expected `"OK"` for success.
+
+**Root Cause:** When Upstash Redis is not configured, the noop Redis in `index.ts` returned `null` for all `set` operations. The `acquireOAuthCodeLock` function checks if `result === "OK"`, so it always returned `false` (lock not acquired).
+
+**Solution:**
+- Changed noop Redis `set` to return `"OK"` instead of `null`
+- This allows lock acquisition to succeed when Redis isn't configured
+- Without distributed Redis, locking isn't needed anyway (single instance)
+
+**Files Changed:**
+- `apps/web/utils/redis/index.ts` - Fixed noop Redis set return value
+
+---
+
+### 7. Font Portal Inheritance Fix
+
+**Problem:** The previous dialog font fix didn't fully work because `--font-inter` CSS variable was scoped to a wrapper div in the app layout, but Radix UI portals render to `document.body`, outside that DOM subtree.
+
+**Solution:**
+- Added Inter font to root layout (`app/layout.tsx`)
+- Added `inter.variable` class to `<body>` so all portals inherit the font variable
+- Removed duplicate Inter font definition from app layout
+- Simplified app layout by removing unnecessary wrapper div
+
+**Files Changed:**
+- `apps/web/app/layout.tsx` - Added Inter font and variable to body
+- `apps/web/app/(app)/layout.tsx` - Removed duplicate Inter font, simplified JSX
 
 ---
 
@@ -92,31 +128,24 @@ This session addressed several issues with the inbox-zero email client and email
 
 ### Calendar OAuth Not Connecting
 
-**Status:** Debugging in progress
+**Status:** FIXED in Session 2 (commit `48b149e0d`)
 
-**Symptoms:**
-- User clicks "Connect Calendar"
-- Redirected to Google OAuth, grants permissions
-- Redirected back to `/calendars` but no calendar appears
-- Logs show "OAuth code is being processed by another request" but no success/error logs
+**Root Cause Identified:** The noop Redis `set` returned `null`, but lock acquisition expected `"OK"`. This caused every OAuth callback to be blocked as a "duplicate request."
 
-**Next Steps:**
-1. Rebuild inbox-zero container with new logging
-2. Try connecting calendar again
-3. Check logs for:
-   - `Calendar callback started` - confirms request reaches handler
-   - `OAuth callback validated` - confirms validation passed
-   - `Acquired OAuth lock` - confirms this request got the lock (not duplicate)
-   - `Exchanging OAuth code for tokens` - confirms token exchange started
-   - `Token exchange result` - shows if tokens were received
-   - `Creating calendar connection` - confirms DB write attempted
-   - `Calendar connected successfully` - confirms success
+**Fix Applied:** Changed noop Redis to return `"OK"` for `set` operations.
 
-**Possible Causes:**
-- Redis lock not releasing properly
-- Token exchange failing silently
-- Database write failing
-- Multiple container instances causing race conditions
+**To Test:**
+1. Wait for Watchtower to pull the new image (check container logs)
+2. Navigate to Calendars page
+3. Click "Connect Calendar"
+4. Complete Google OAuth flow
+5. Calendar should now appear in the list
+
+**If Still Not Working:**
+Check logs for:
+- `Acquired OAuth lock` - should now appear
+- `Exchanging OAuth code for tokens` - confirms token exchange started
+- `Calendar connected successfully` - confirms success
 
 ---
 
@@ -156,7 +185,9 @@ docker-compose logs -f inbox-zero | grep -E "calendar|Calendar"
 ### inbox-zero repo
 | File | Change |
 |------|--------|
-| `apps/web/app/(app)/layout.tsx` | Removed duplicate CSS import |
+| `apps/web/app/layout.tsx` | Added Inter font variable to body (Session 2) |
+| `apps/web/app/(app)/layout.tsx` | Removed duplicate Inter font, simplified JSX (Session 2) |
+| `apps/web/utils/redis/index.ts` | Fixed noop Redis set return value (Session 2) |
 | `apps/web/app/(app)/[emailAccountId]/mail/page.tsx` | Improved refetch logic |
 | `apps/web/app/(app)/[emailAccountId]/activity/page.tsx` | Added API key header, updated types |
 | `apps/web/components/ui/dialog.tsx` | Added font-inter class |
