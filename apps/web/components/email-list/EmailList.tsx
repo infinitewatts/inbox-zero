@@ -369,9 +369,9 @@ export function EmailList({
   const isEmpty = threads.length === 0;
 
   return (
-    <>
+    <div className="flex h-[calc(100vh-3rem)] flex-col">
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex items-center border-b border-l-4 border-border bg-background px-4 py-1">
+        <div className="flex shrink-0 items-center border-b border-l-4 border-border bg-background px-4 py-1">
           <div className="pl-1">
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
@@ -409,16 +409,17 @@ export function EmailList({
         </div>
       )}
 
-      {isEmpty ? (
-        <div className="py-2">
-          {typeof emptyMessage === "string" ? (
-            <MessageText>{emptyMessage}</MessageText>
-          ) : (
-            emptyMessage
-          )}
-        </div>
-      ) : (
-        <ResizeGroup
+      <div className="min-h-0 flex-1">
+        {isEmpty ? (
+          <div className="py-2">
+            {typeof emptyMessage === "string" ? (
+              <MessageText>{emptyMessage}</MessageText>
+            ) : (
+              emptyMessage
+            )}
+          </div>
+        ) : (
+          <ResizeGroup
           left={
             <ul
               className="divide-y divide-border overflow-y-auto scroll-smooth"
@@ -499,8 +500,9 @@ export function EmailList({
             )
           }
         />
-      )}
-    </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -513,15 +515,18 @@ function ResizeGroup({
 }) {
   const isMobile = useIsMobile();
 
-  if (!right) return left;
+  if (!right) return <div className="h-full overflow-auto">{left}</div>;
 
   return (
-    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
+    <ResizablePanelGroup
+      direction={isMobile ? "vertical" : "horizontal"}
+      className="h-full"
+    >
+      <ResizablePanel style={{ overflow: "auto" }} defaultSize={40} minSize={20}>
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={50} minSize={0}>
+      <ResizablePanel defaultSize={60} minSize={30}>
         {right}
       </ResizablePanel>
     </ResizablePanelGroup>
