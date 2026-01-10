@@ -29,7 +29,7 @@ export function ModelSection() {
 
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data?.aiProvider === Provider.OPEN_AI
+      data?.hasAiApiKey && data?.aiProvider === Provider.OPEN_AI
         ? "/api/ai/models"
         : null,
     );
@@ -46,7 +46,7 @@ export function ModelSection() {
           <ModelSectionForm
             aiProvider={data.aiProvider}
             aiModel={data.aiModel}
-            aiApiKey={data.aiApiKey}
+            hasAiApiKey={data.hasAiApiKey}
             models={dataModels}
             refetchUser={mutate}
           />
@@ -59,7 +59,7 @@ export function ModelSection() {
 function ModelSectionForm(props: {
   aiProvider: SaveAiSettingsBody["aiProvider"] | null;
   aiModel: SaveAiSettingsBody["aiModel"] | null;
-  aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
+  hasAiApiKey: boolean;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
 }) {
@@ -75,7 +75,7 @@ function ModelSectionForm(props: {
     defaultValues: {
       aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
       aiModel: props.aiModel ?? "",
-      aiApiKey: props.aiApiKey ?? undefined,
+      aiApiKey: undefined,
     },
   });
 
@@ -104,12 +104,16 @@ function ModelSectionForm(props: {
   const globalError = (errors as any)[""];
 
   const modelSelectOptions =
-    aiProvider === Provider.OPEN_AI && watch("aiApiKey")
+    aiProvider === Provider.OPEN_AI &&
+    (watch("aiApiKey") || props.hasAiApiKey)
       ? props.models?.map((m) => ({
           label: m.id,
           value: m.id,
         })) || []
       : [];
+
+  const hasSavedKey = props.hasAiApiKey;
+  const hasInputKey = !!watch("aiApiKey");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -154,17 +158,17 @@ function ModelSectionForm(props: {
       )}
 
       {watch("aiProvider") === Provider.OPEN_AI &&
-        watch("aiApiKey") &&
+        (hasInputKey || hasSavedKey) &&
         modelSelectOptions.length === 0 &&
-        (props.aiApiKey ? (
-          <AlertError
-            title="Invalid API Key"
-            description="We couldn't validate your API key. Please try again."
-          />
-        ) : (
+        (hasInputKey ? (
           <AlertBasic
             title="API Key"
             description="Click Save to view available models for your API key."
+          />
+        ) : (
+          <AlertError
+            title="Invalid API Key"
+            description="We couldn't validate your saved API key. Please re-save it."
           />
         ))}
 

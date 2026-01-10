@@ -60,8 +60,12 @@ async function getUser({ userId }: { userId: string }) {
     })),
   );
 
+  const { aiApiKey, ...rest } = user;
+
   return {
-    ...user,
+    ...rest,
+    // Never return the raw API key to the client.
+    hasAiApiKey: !!aiApiKey,
     members,
   };
 }
