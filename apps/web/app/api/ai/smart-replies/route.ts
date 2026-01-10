@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
-import { createGenerateObject } from "@/utils/llms";
-import { getModel } from "@/utils/llms/model";
+import { chatCompletionObject } from "@/utils/llms";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
 
 const smartRepliesBody = z.object({
   emailContent: z.string().min(1),
@@ -11,33 +11,37 @@ const smartRepliesBody = z.object({
   senderName: z.string().optional(),
 });
 
-const smartRepliesSchema = z.object({
+const smartRepliesResponse = z.object({
   replies: z
     .array(
       z.object({
-        text: z.string().describe("The reply text, 1-2 sentences max"),
-        tone: z
-          .enum(["positive", "neutral", "decline"])
-          .describe("The tone of the reply"),
+        text: z.string(),
+        tone: z.enum(["positive", "neutral", "decline"]),
       }),
     )
-    .max(3)
-    .describe("Exactly 3 short reply options"),
+    .max(3),
 });
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-  if (!emailAccount) {
+  const user = await getEmailAccountWithAi({ emailAccountId });
+  if (!user)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+  const rateLimit = await checkAiRateLimit(user.userId);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
   }
 
   const json = await request.json();
   const parsed = smartRepliesBody.safeParse(json);
 
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
   }
 
   const { emailContent, subject, senderName } = parsed.data;
@@ -63,23 +67,14 @@ Output exactly 3 replies with their tone.`;
     .filter((line) => line !== null)
     .join("\n");
 
-  const modelOptions = getModel(emailAccount.user);
-  const generateObject = createGenerateObject({
-    emailAccount: {
-      id: emailAccount.id,
-      userId: emailAccount.userId,
-      email: emailAccount.email,
-    },
-    label: "Smart replies",
-    modelOptions,
-  });
-
   try {
-    const result = await generateObject({
-      ...modelOptions,
-      system,
+    const result = await chatCompletionObject({
+      userAi: user.user,
       prompt: userPrompt,
-      schema: smartRepliesSchema,
+      system,
+      schema: smartRepliesResponse,
+      userEmail: user.email,
+      usageLabel: "Smart replies",
     });
 
     return NextResponse.json(result.object);

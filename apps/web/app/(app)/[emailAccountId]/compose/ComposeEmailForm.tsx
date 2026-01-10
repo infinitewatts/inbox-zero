@@ -7,15 +7,7 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from "@headlessui/react";
-import {
-  CheckCircleIcon,
-  FileTextIcon,
-  RefreshCwIcon,
-  SaveIcon,
-  SparklesIcon,
-  TrashIcon,
-  XIcon,
-} from "lucide-react";
+import { CheckCircleIcon, SparklesIcon, TrashIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
@@ -26,13 +18,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input as UiInput } from "@/components/ui/input";
 import {
   Dialog,
@@ -55,6 +40,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { htmlToText } from "@/utils/parse/parseHtml.client";
 import { SmartReplies } from "@/components/compose/SmartReplies";
+import {
+  ComposeToolbar,
+  AutocompleteStatusBar,
+} from "@/components/compose/ComposeToolbar";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -127,6 +116,7 @@ export const ComposeEmailForm = ({
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const aiSuggestionAbort = useRef<AbortController | null>(null);
   const aiSuggestionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aiDraftAbort = useRef<AbortController | null>(null);
   const recipientNameRef = useRef<string | undefined>(undefined);
   const senderNameRef = useRef<string | undefined>(undefined);
   const ghostHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -345,6 +335,11 @@ export const ComposeEmailForm = ({
       return;
     }
 
+    aiDraftAbort.current?.abort();
+    const controller = new AbortController();
+    aiDraftAbort.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 60_000);
+
     setAiSuggestion(null);
     setIsAiDrafting(true);
     try {
@@ -368,11 +363,17 @@ export const ComposeEmailForm = ({
           existingContent: editorRef.current?.getMarkdown() || undefined,
           replyContext,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 429) {
+          throw new Error("Too many requests. Please wait a moment.");
+        }
         throw new Error(data?.error || "Failed to generate draft");
       }
 
@@ -382,11 +383,16 @@ export const ComposeEmailForm = ({
 
       setAiDraft(data.bodyHtml);
     } catch (error) {
+      if (controller.signal.aborted) {
+        toastError({ description: "Request timed out. Please try again." });
+        return;
+      }
       console.error(error);
       const message =
         error instanceof Error ? error.message : "AI draft failed";
       toastError({ description: message });
     } finally {
+      clearTimeout(timeoutId);
       setIsAiDrafting(false);
     }
   }, [aiPrompt, subject, emailAccountId, replyingToEmail]);
@@ -886,124 +892,68 @@ export const ComposeEmailForm = ({
         />
       )}
 
-      <div className="rounded-md border border-dashed border-border p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <SparklesIcon className="h-4 w-4 text-amber-500" />
-            Write with AI
-          </div>
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  <FileTextIcon className="mr-2 h-4 w-4" />
-                  Templates
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    openSaveTemplateDialog();
-                  }}
-                >
-                  <SaveIcon className="mr-2 h-4 w-4" />
-                  Save current as template
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {templates.length ? (
-                  templates.map((template) => (
-                    <DropdownMenuItem
-                      key={template.id}
-                      className="flex items-center justify-between"
-                      onSelect={() => applyTemplate(template)}
-                    >
-                      <span className="truncate">{template.name}</span>
-                      <button
-                        type="button"
-                        className="ml-2 rounded p-1 text-muted-foreground hover:text-destructive"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          handleDeleteTemplate(template.id);
-                        }}
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    No templates yet.
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAiContinue}
-              disabled={isAiContinuing || isAiDrafting}
-            >
-              {isAiContinuing && <ButtonLoader />}
-              Continue
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleAiDraft}
-              disabled={isAiDrafting}
-            >
-              {isAiDrafting && <ButtonLoader />}
-              Generate draft
-            </Button>
+      <div className="rounded-md border border-border bg-muted/30 p-3">
+        <div className="flex items-center gap-3">
+          <ComposeToolbar
+            onGenerateDraft={handleAiDraft}
+            onContinue={handleAiContinue}
+            onSaveTemplate={openSaveTemplateDialog}
+            onApplyTemplate={applyTemplate}
+            onDeleteTemplate={handleDeleteTemplate}
+            templates={templates}
+            isGenerating={isAiDrafting}
+            isContinuing={isAiContinuing}
+          />
+          <div className="h-5 w-px bg-border" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
+            <span>AI</span>
           </div>
         </div>
         <Textarea
           value={aiPrompt}
           onChange={(event) => setAiPrompt(event.target.value)}
-          placeholder="Describe what you want to say (goal, tone, key points)"
-          className="mt-3 min-h-[90px]"
+          placeholder="What do you want to say? (goal, tone, key points)"
+          className="mt-2 min-h-[60px] resize-none border-0 bg-transparent p-0 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-0"
         />
         {aiDraft && (
-          <div className="mt-3 rounded-md border border-border bg-muted/40 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase text-muted-foreground">
-                <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
-                AI draft preview
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Review before inserting
+          <div className="mt-2 rounded-md border border-border bg-background p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Preview
               </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => applyAiDraft("replace")}
+                >
+                  Replace
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => applyAiDraft("append")}
+                >
+                  Append
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => setAiDraft(null)}
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-sm text-foreground">
-              {draftPreviewText || "Draft is ready."}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => applyAiDraft("replace")}
-              >
-                Replace
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => applyAiDraft("append")}
-              >
-                Append
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => setAiDraft(null)}
-              >
-                Discard
-              </Button>
+            <div className="mt-1.5 max-h-32 overflow-auto text-sm text-foreground">
+              {draftPreviewText || "Draft ready."}
             </div>
           </div>
         )}
@@ -1081,54 +1031,11 @@ export const ComposeEmailForm = ({
       )}
 
       {(aiSuggestion || isAiSuggesting) && (
-        <div className="flex items-center justify-between rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2 text-sm dark:border-blue-800 dark:bg-blue-950/30">
-          <div className="flex items-center gap-2">
-            {isAiSuggesting ? (
-              <>
-                <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
-                <span className="text-xs text-muted-foreground">
-                  Generating...
-                </span>
-              </>
-            ) : (
-              <>
-                <SparklesIcon className="h-3.5 w-3.5 text-blue-500" />
-                <span className="text-xs text-muted-foreground">
-                  Press{" "}
-                  <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-                    Tab
-                  </kbd>{" "}
-                  to accept
-                </span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={fetchAiSuggestion}
-              disabled={isAiSuggesting}
-              title="Regenerate"
-            >
-              <RefreshCwIcon
-                className={`h-3 w-3 ${isAiSuggesting ? "animate-spin" : ""}`}
-              />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0"
-              onClick={() => setAiSuggestion(null)}
-              title="Dismiss"
-            >
-              <XIcon className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
+        <AutocompleteStatusBar
+          isGenerating={isAiSuggesting}
+          onRegenerate={fetchAiSuggestion}
+          onDismiss={() => setAiSuggestion(null)}
+        />
       )}
 
       <div className="flex items-center justify-between">

@@ -5,6 +5,11 @@ import { composeSubjectBody } from "@/app/api/ai/compose-subject/validation";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
+
+const logger = createScopedLogger("compose-subject");
 
 const subjectSchema = z.object({
   subject: z
@@ -20,6 +25,11 @@ export const POST = withEmailAccount(async (request) => {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
+  const rateLimit = await checkAiRateLimit(emailAccount.userId);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
+
   const writingStyle = await getWritingStyle({ emailAccountId });
 
   const json = await request.json();
@@ -29,9 +39,7 @@ export const POST = withEmailAccount(async (request) => {
 Return only the subject. Keep it short and specific.`;
 
   const userPrompt = [
-    emailAccount.about
-      ? `About the user:\n${emailAccount.about}`
-      : null,
+    emailAccount.about ? `About the user:\n${emailAccount.about}` : null,
     writingStyle ? `Writing style:\n${writingStyle}` : null,
     to ? `Recipient:\n${to}` : null,
     prompt ? `User prompt:\n${prompt}` : null,
@@ -51,12 +59,29 @@ Return only the subject. Keep it short and specific.`;
     modelOptions,
   });
 
-  const result = await generateObject({
-    ...modelOptions,
-    system,
-    prompt: userPrompt,
-    schema: subjectSchema,
-  });
+  try {
+    const result = await generateObject({
+      ...modelOptions,
+      system,
+      prompt: userPrompt,
+      schema: subjectSchema,
+    });
 
-  return NextResponse.json(result.object);
+    return NextResponse.json(result.object);
+  } catch (error) {
+    logger.error("Failed to generate subject", {
+      error,
+      emailAccountId,
+      content: content.slice(0, 100),
+    });
+
+    if (error instanceof SafeError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      { error: "Failed to generate subject. Please try again." },
+      { status: 500 },
+    );
+  }
 });

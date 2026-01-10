@@ -7,6 +7,7 @@ import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
 
 const logger = createScopedLogger("compose-draft");
 
@@ -22,6 +23,11 @@ export const POST = withEmailAccount(async (request) => {
   const emailAccount = await getEmailAccountWithAi({ emailAccountId });
   if (!emailAccount) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  const rateLimit = await checkAiRateLimit(emailAccount.userId);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
   }
 
   const writingStyle = await getWritingStyle({ emailAccountId });

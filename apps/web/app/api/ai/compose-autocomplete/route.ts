@@ -3,6 +3,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 import { chatCompletionStream } from "@/utils/llms";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -10,6 +11,11 @@ export const POST = withEmailAccount(async (request) => {
   const user = await getEmailAccountWithAi({ emailAccountId });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
+
+  const rateLimit = await checkAiRateLimit(user.userId);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit.resetIn);
+  }
 
   const json = await request.json();
   const { prompt } = composeAutocompleteBody.parse(json);

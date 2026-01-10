@@ -40,6 +40,7 @@ import { withNetworkRetry } from "./retry";
 const logger = createScopedLogger("llms");
 
 const MAX_LOG_LENGTH = 200;
+const DEFAULT_TIMEOUT_MS = 60_000; // 60 seconds
 
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
@@ -169,36 +170,49 @@ export function createGenerateObject({
         logger.warn("Missing JSON in prompt", { label });
       }
 
-      const result = await generateObject(
-        {
-          experimental_repairText: async ({ text }) => {
-            logger.info("Repairing text", { label });
-            const fixed = jsonrepair(text);
-            return fixed;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        logger.warn("Request timeout, aborting", { label });
+        controller.abort();
+      }, DEFAULT_TIMEOUT_MS);
+
+      try {
+        const result = await generateObject(
+          {
+            experimental_repairText: async ({ text }) => {
+              logger.info("Repairing text", { label });
+              const fixed = jsonrepair(text);
+              return fixed;
+            },
+            ...options,
+            ...commonOptions,
+            model,
+            abortSignal: options.abortSignal ?? controller.signal,
           },
-          ...options,
-          ...commonOptions,
-          model,
-        },
-        ...restArgs,
-      );
+          ...restArgs,
+        );
+        clearTimeout(timeoutId);
 
-      if (result.usage) {
-        await saveAiUsage({
-          email: emailAccount.email,
-          usage: result.usage,
-          provider: modelOptions.provider,
-          model: modelOptions.modelName,
+        if (result.usage) {
+          await saveAiUsage({
+            email: emailAccount.email,
+            usage: result.usage,
+            provider: modelOptions.provider,
+            model: modelOptions.modelName,
+            label,
+          });
+        }
+
+        logger.trace("Generated object", {
           label,
+          result: result.object,
         });
+
+        return result;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        throw error;
       }
-
-      logger.trace("Generated object", {
-        label,
-        result: result.object,
-      });
-
-      return result;
     };
 
     try {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const composeDraftBody = z.object({
-  prompt: z.string().min(1),
+  prompt: z.string().trim().min(1, "Prompt cannot be empty"),
   subject: z.string().optional(),
   existingContent: z.string().optional(),
   replyContext: z
