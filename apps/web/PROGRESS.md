@@ -4,7 +4,7 @@
 
 ## Summary
 
-All batches completed through Batch 4. Total: **11 commits** across AI improvements, UI refresh, UX enhancements, and performance optimizations.
+All batches completed through Batch 5. Total: **12 commits** across AI improvements, UI refresh, UX enhancements, performance, and keyboard shortcuts.
 
 ---
 
@@ -38,7 +38,12 @@ All batches completed through Batch 4. Total: **11 commits** across AI improveme
 ### Batch 4: Performance
 | Commit | Description |
 |--------|-------------|
-| `pending` | Email list virtualization with @tanstack/react-virtual |
+| `f4ee51d8e` | Email list virtualization with @tanstack/react-virtual |
+
+### Batch 5: Fast Inbox UX (Keyboard Shortcuts)
+| Commit | Description |
+|--------|-------------|
+| `pending` | Gmail-style keyboard navigation (j/k, g+key, etc.) |
 
 ---
 
@@ -79,6 +84,14 @@ All batches completed through Batch 4. Total: **11 commits** across AI improveme
 | `/` | AI Assistant |
 | `C` | Compose |
 | `E` | Archive |
+| `J` | Next email |
+| `K` | Previous email |
+| `G then I` | Go to Inbox |
+| `G then S` | Go to Sent |
+| `G then D` | Go to Drafts |
+| `G then T` | Go to Trash |
+| `G then A` | Go to All Mail |
+| `Esc` | Close email preview |
 | `Tab` | Accept autocomplete |
 
 ---
@@ -116,8 +129,9 @@ All batches completed through Batch 4. Total: **11 commits** across AI improveme
 - `app/(app)/[emailAccountId]/mail/BetaBanner.tsx` - Amber styling
 
 **Command Palette:**
-- `components/CommandK.tsx` - "/" shortcut
+- `components/CommandK.tsx` - "/" shortcut, Gmail-style keyboard navigation
 - `hooks/useCommandPaletteCommands.ts` - Ask commands
+- `store/email.ts` - Navigation atom for j/k shortcuts
 
 **Ask UI:**
 - `components/assistant-chat/chat.tsx` - Improved styling

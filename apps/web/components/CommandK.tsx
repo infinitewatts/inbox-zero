@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArchiveIcon, Loader2Icon } from "lucide-react";
+import { toast } from "sonner";
 import { useAtomValue } from "jotai";
 import {
   CommandDialog,
@@ -15,7 +16,7 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { refetchEmailListAtom } from "@/store/email";
+import { refetchEmailListAtom, emailNavigationAtom } from "@/store/email";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -48,8 +49,12 @@ export function CommandK() {
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
   const refreshEmailList = useAtomValue(refetchEmailListAtom);
+  const emailNavigation = useAtomValue(emailNavigationAtom);
   const { onOpen: onOpenComposeModal } = useComposeModal();
   const { commands, isLoading } = useCommandPaletteCommands();
+
+  // track "g" key for go-to shortcuts (g+i for inbox, g+s for sent, etc.)
+  const [pendingGoTo, setPendingGoTo] = React.useState(false);
 
   const onArchive = React.useCallback(() => {
     if (threadId) {
@@ -142,8 +147,43 @@ export function CommandK() {
     [],
   );
 
+  // navigation helpers
+  const goToNextEmail = React.useCallback(() => {
+    if (!emailNavigation) return;
+    const { threads, currentThreadId, openThread } = emailNavigation;
+    if (threads.length === 0) return;
+
+    if (!currentThreadId) {
+      openThread(threads[0].id);
+      return;
+    }
+
+    const currentIndex = threads.findIndex((t) => t.id === currentThreadId);
+    if (currentIndex < threads.length - 1) {
+      openThread(threads[currentIndex + 1].id);
+    }
+  }, [emailNavigation]);
+
+  const goToPrevEmail = React.useCallback(() => {
+    if (!emailNavigation) return;
+    const { threads, currentThreadId, openThread } = emailNavigation;
+    if (threads.length === 0) return;
+
+    if (!currentThreadId) {
+      openThread(threads[threads.length - 1].id);
+      return;
+    }
+
+    const currentIndex = threads.findIndex((t) => t.id === currentThreadId);
+    if (currentIndex > 0) {
+      openThread(threads[currentIndex - 1].id);
+    }
+  }, [emailNavigation]);
+
   // keyboard shortcuts
   React.useEffect(() => {
+    let goToTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const down = (e: KeyboardEvent) => {
       // cmd+k to toggle palette
       if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
@@ -157,6 +197,10 @@ export function CommandK() {
 
       // escape to close email preview
       if (e.key === "Escape") {
+        if (pendingGoTo) {
+          setPendingGoTo(false);
+          return;
+        }
         if (threadId) {
           e.preventDefault();
           showEmail(null);
@@ -166,6 +210,53 @@ export function CommandK() {
 
       // only handle shortcuts when focus is on body
       if (document?.activeElement?.tagName !== "BODY") return;
+
+      // handle g+key go-to shortcuts
+      if (pendingGoTo) {
+        setPendingGoTo(false);
+        if (goToTimeout) clearTimeout(goToTimeout);
+
+        const goToRoutes: Record<string, `/${string}`> = {
+          i: "/mail?type=inbox",
+          s: "/mail?type=sent",
+          d: "/mail?type=draft",
+          t: "/mail?type=trash",
+          a: "/mail?type=all",
+        };
+
+        const route = goToRoutes[e.key.toLowerCase()];
+        if (route) {
+          e.preventDefault();
+          router.push(prefixPath(emailAccountId, route));
+        }
+        return;
+      }
+
+      // g starts go-to mode
+      if (e.key === "g" && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setPendingGoTo(true);
+        toast.info("Go to: i=inbox, s=sent, d=drafts, t=trash, a=all", {
+          duration: 1500,
+          id: "goto-mode",
+        });
+        goToTimeout = setTimeout(() => setPendingGoTo(false), 1500);
+        return;
+      }
+
+      // j for next email
+      if (e.key === "j" && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        goToNextEmail();
+        return;
+      }
+
+      // k for previous email
+      if (e.key === "k" && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        goToPrevEmail();
+        return;
+      }
 
       // e for archive
       if ((e.key === "e" || e.key === "E") && !(e.metaKey || e.ctrlKey)) {
@@ -193,8 +284,20 @@ export function CommandK() {
 
     return () => {
       document.removeEventListener("keydown", down);
+      if (goToTimeout) clearTimeout(goToTimeout);
     };
-  }, [open, onArchive, onOpenComposeModal, threadId, showEmail, router, emailAccountId]);
+  }, [
+    open,
+    onArchive,
+    onOpenComposeModal,
+    threadId,
+    showEmail,
+    router,
+    emailAccountId,
+    pendingGoTo,
+    goToNextEmail,
+    goToPrevEmail,
+  ]);
 
   return (
     <CommandDialog
@@ -258,24 +361,36 @@ export function CommandK() {
           </>
         )}
       </CommandList>
-      <div className="flex items-center justify-center gap-4 border-t px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-center gap-3 border-t px-3 py-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↑↓
+            j/k
           </kbd>
-          navigate
+          next/prev
         </span>
         <span className="flex items-center gap-1">
           <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            ↵
+            e
           </kbd>
-          select
+          archive
         </span>
         <span className="flex items-center gap-1">
           <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-            esc
+            c
           </kbd>
-          close
+          compose
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+            g
+          </kbd>
+          go to...
+        </span>
+        <span className="flex items-center gap-1">
+          <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+            /
+          </kbd>
+          ask AI
         </span>
       </div>
     </CommandDialog>

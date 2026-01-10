@@ -29,9 +29,11 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useSetAtom } from "jotai";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { emailNavigationAtom } from "@/store/email";
 
 const ROW_HEIGHT_NORMAL = 44;
 const ROW_HEIGHT_SPLIT = 96;
@@ -183,6 +185,7 @@ export function EmailList({
   handleLoadMore?: () => void;
 }) {
   const { emailAccountId, userEmail, provider } = useAccount();
+  const setEmailNavigation = useSetAtom(emailNavigationAtom);
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
@@ -190,6 +193,28 @@ export function EmailList({
     () => setOpenThreadId(null),
     [setOpenThreadId],
   );
+
+  const openThread = useCallback(
+    (threadId: string) => {
+      setOpenThreadId(threadId);
+      markReadThreads({
+        threadIds: [threadId],
+        onSuccess: () => refetch(),
+        emailAccountId,
+      });
+    },
+    [setOpenThreadId, refetch, emailAccountId],
+  );
+
+  useEffect(() => {
+    setEmailNavigation({
+      threads: threads.map((t) => ({ id: t.id })),
+      currentThreadId: openThreadId,
+      openThread,
+      closeThread: closePanel,
+    });
+    return () => setEmailNavigation(null);
+  }, [threads, openThreadId, openThread, closePanel, setEmailNavigation]);
 
   const openedRow = useMemo(
     () => threads.find((thread) => thread.id === openThreadId),
