@@ -22,6 +22,11 @@
 |--------|--------|--------|
 | de1c0bf76 | Smart replies + improved autocomplete UX | ✅ |
 
+### Batch 3: Command Palette + Ask UI (Jan 9, 2026)
+| Commit | Change | Status |
+|--------|--------|--------|
+| dfbbdd4c3 | Command palette + Ask UI improvements | ✅ |
+
 ---
 
 ## UI Changes Summary
@@ -46,25 +51,49 @@
 | States | Normal, minimized (header only), maximized |
 | Header | Dark slate with min/max/close controls |
 
-### Smart Replies (NEW)
+### Smart Replies
 - Quick reply buttons appear when replying to an email
 - 3 AI-generated reply options (positive/neutral/decline tones)
 - One-click to insert into editor
 - Refresh button to regenerate
 
-### Autocomplete Improvements (NEW)
+### Autocomplete Improvements
 - Blue accent styling for suggestion panel
 - Regenerate button to get different suggestions
 - Spinner loading state
 - Styled keyboard hint (`Tab` to accept)
 
+### Command Palette (NEW)
+- **Ask Assistant** command with `/` shortcut
+- **Search emails** command
+- **Find receipts** - quick search for invoices
+- **Find travel bookings** - flights, hotels, reservations
+- **Find pending approvals** - items needing review
+
+### Ask UI (NEW)
+- New header with AI Assistant branding
+- Blue gradient background
+- Better "chat too long" warning with inline action
+- Improved context badge (blue theme)
+- Better placeholder with example queries
+- "/" shortcut hint below input
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+K` | Open command palette |
+| `/` | Open AI Assistant |
+| `C` | Compose new email |
+| `E` | Archive selected email |
+| `Esc` | Close email preview |
+| `Tab` | Accept AI autocomplete |
+
 ---
 
 ## In Progress / Next Up
-
-### Batch 3: Command Bar / Ask UI
-- [ ] Improve the Ask interface styling
-- [ ] Command palette for actions
 
 ### Batch 4: Performance
 - [ ] Email list virtualization for large inboxes
@@ -88,5 +117,8 @@ After deploy, test:
 2. Try the collapsible sidebar sections
 3. Test compose window minimize/maximize/close
 4. Check email list density improvements
-5. **NEW**: Reply to an email and see Smart Reply buttons
-6. **NEW**: Write 40+ chars and see autocomplete with Regenerate button
+5. Reply to an email and see Smart Reply buttons
+6. Write 40+ chars and see autocomplete with Regenerate button
+7. **NEW**: Press `/` to open AI Assistant
+8. **NEW**: Press `Cmd+K` and search for "receipts" or "travel"
+9. **NEW**: Check the improved Ask UI styling
