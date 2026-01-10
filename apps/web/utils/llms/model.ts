@@ -16,6 +16,44 @@ const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
+/**
+ * Validates that AI is properly configured.
+ * Returns { valid: true } if configured, or { valid: false, error: string } if not.
+ */
+export function validateAiConfig(): { valid: true } | { valid: false; error: string } {
+  const provider = env.DEFAULT_LLM_PROVIDER;
+
+  const requiredKeys: Record<string, string | undefined> = {
+    anthropic: env.ANTHROPIC_API_KEY,
+    openai: env.OPENAI_API_KEY,
+    google: env.GOOGLE_API_KEY,
+    groq: env.GROQ_API_KEY,
+    openrouter: env.OPENROUTER_API_KEY,
+    aigateway: env.AI_GATEWAY_API_KEY,
+    bedrock: env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY ? "configured" : undefined,
+    ollama: env.OLLAMA_MODEL ? "configured" : undefined,
+  };
+
+  const apiKey = requiredKeys[provider];
+
+  if (!apiKey) {
+    return {
+      valid: false,
+      error: `AI provider "${provider}" is configured but API key is missing. Set the appropriate API key environment variable.`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Check if AI is available (has valid configuration).
+ * Use this for feature gating on the frontend.
+ */
+export function isAiAvailable(): boolean {
+  return validateAiConfig().valid;
+}
+
 export type SelectModel = {
   provider: string;
   modelName: string;

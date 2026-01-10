@@ -154,7 +154,7 @@ export function createGenerateObject({
   return async (...args) => {
     const [options, ...restArgs] = args;
 
-    const generate = async () => {
+    const generate = async (model: LanguageModelV2) => {
       logger.trace("Generating object", {
         label,
         system: options.system?.slice(0, MAX_LOG_LENGTH),
@@ -178,7 +178,7 @@ export function createGenerateObject({
           },
           ...options,
           ...commonOptions,
-          model: modelOptions.model,
+          model,
         },
         ...restArgs,
       );
@@ -202,7 +202,7 @@ export function createGenerateObject({
     };
 
     try {
-      return await withNetworkRetry(generate, {
+      return await withNetworkRetry(() => generate(modelOptions.model), {
         label,
         // Also retry on validation errors for generateObject
         shouldRetry: (error) =>
@@ -210,6 +210,39 @@ export function createGenerateObject({
           TypeValidationError.isInstance(error),
       });
     } catch (error) {
+      // Try backup model for service unavailable or throttling errors
+      if (
+        modelOptions.backupModel &&
+        (isServiceUnavailableError(error) || isAWSThrottlingError(error))
+      ) {
+        logger.warn("Using backup model for generateObject", {
+          error,
+          model: modelOptions.backupModel,
+        });
+
+        try {
+          return await withNetworkRetry(
+            () => generate(modelOptions.backupModel!),
+            {
+              label,
+              shouldRetry: (error) =>
+                NoObjectGeneratedError.isInstance(error) ||
+                TypeValidationError.isInstance(error),
+            },
+          );
+        } catch (backupError) {
+          await handleError(
+            backupError,
+            emailAccount.userId,
+            emailAccount.email,
+            emailAccount.id,
+            label,
+            modelOptions.modelName,
+          );
+          throw backupError;
+        }
+      }
+
       await handleError(
         error,
         emailAccount.userId,
