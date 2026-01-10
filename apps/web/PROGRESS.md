@@ -48,7 +48,7 @@ All batches completed through Batch 6. Total: **13 commits** across AI improveme
 ### Batch 6: Ghost Typing (Inline AI Autocomplete)
 | Commit | Description |
 |--------|-------------|
-| `pending` | Inline AI suggestions with Tab/Enter to accept |
+| `e06693afc` | Inline AI suggestions with Tab/Enter to accept |
 
 ---
 
@@ -152,3 +152,25 @@ All batches completed through Batch 6. Total: **13 commits** across AI improveme
 - `app/api/ai/smart-replies/route.ts`
 - `app/api/ai/ghost-suggest/route.ts`
 - `components/compose/SmartReplies.tsx`
+
+---
+
+## Next Steps (Resume Here)
+
+### Immediate: Shortwave-style Compose Toolbar
+- Refactor compose toolbar to use compact SVG icons instead of text buttons
+- Reference: Shortwave uses minimal icon-only buttons for AI features
+- Files to modify: `ComposeEmailForm.tsx`, potentially extract toolbar component
+
+### Remaining from Original Task List:
+| # | Task | Status |
+|---|------|--------|
+| 1 | Fix "Generate draft" failures | ⚠️ Verify with prod logs |
+| 5 | Templates/personas in compose | ❌ Not started |
+| 7 | Thread intelligence (summary chips, next-action) | ❌ Not started |
+| 8 | Attachment helpers (OCR, extract key points) | ❌ Not started |
+| 9 | AI settings & stability (hasAiApiKey, Redis fallback) | ⚠️ Partial |
+
+### Git Status
+- Branch: `main`
+- Latest commit: `e06693afc` (Batch 6: Ghost typing)
