@@ -371,11 +371,11 @@ export function EmailList({
   return (
     <div className="flex h-[calc(100vh-3rem)] flex-col">
       {!(isEmpty && hideActionBarWhenEmpty) && (
-        <div className="flex shrink-0 items-center border-b border-l-4 border-border bg-background px-4 py-1">
-          <div className="pl-1">
+        <div className="flex shrink-0 items-center border-b border-l-2 border-l-transparent bg-slate-50/50 px-3 py-0.5 dark:bg-slate-900/30">
+          <div>
             <Checkbox checked={isAllSelected} onChange={onToggleSelectAll} />
           </div>
-          <div className="ml-2">
+          <div className="ml-1.5">
             <ActionButtonsBulk
               isPlanning={false}
               isArchiving={false}
