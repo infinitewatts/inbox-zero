@@ -129,7 +129,8 @@ class LocalRedisAdapter implements RedisClient {
     field: string,
     increment: number,
   ): Promise<number> {
-    return this.client.hincrbyfloat(key, field, increment);
+    const result = await this.client.hincrbyfloat(key, field, increment);
+    return Number(result);
   }
 
   async publish(channel: string, message: string): Promise<number> {
