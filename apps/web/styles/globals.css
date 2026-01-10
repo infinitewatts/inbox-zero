@@ -133,3 +133,8 @@
   pointer-events: none;
   white-space: pre;
 }
+
+.ghost-text-ai {
+  color: hsl(221 83% 53%);
+  opacity: 0.7;
+}

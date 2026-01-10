@@ -22,6 +22,8 @@ export type GhostTextOptions = {
   suggestions?: GhostTextSuggestions;
   disabled?: () => boolean;
   minPrefixLength?: number;
+  aiSuggestion?: () => string | null;
+  onAiSuggestionAccepted?: () => void;
 };
 
 const fallbackSuggestions: Required<GhostTextSuggestions> = {
@@ -174,6 +176,8 @@ export const GhostText = Extension.create<GhostTextOptions>({
       suggestions: undefined,
       disabled: undefined,
       minPrefixLength: 2,
+      aiSuggestion: undefined,
+      onAiSuggestionAccepted: undefined,
     };
   },
   addProseMirrorPlugins() {
@@ -196,9 +200,12 @@ export const GhostText = Extension.create<GhostTextOptions>({
       return remainingText.length === 0;
     };
 
-    const getSuggestion = (state: EditorState, currentLine: string) => {
-      if (options.disabled?.()) return null;
-      if (!isCursorAtEnd(state)) return null;
+    const getAiSuggestion = () => {
+      const aiText = options.aiSuggestion?.();
+      return aiText?.trim() || null;
+    };
+
+    const getStaticSuggestion = (state: EditorState, currentLine: string) => {
       if (currentLine.trim().length < (options.minPrefixLength ?? 2)) {
         return null;
       }
@@ -208,11 +215,36 @@ export const GhostText = Extension.create<GhostTextOptions>({
         usedSuggestions.clear();
       }
 
-      const suggestions = buildSuggestions(currentLine, fullText, options).filter(
-        (suggestion) => !usedSuggestions.has(suggestion),
-      );
+      const suggestions = buildSuggestions(
+        currentLine,
+        fullText,
+        options,
+      ).filter((suggestion) => !usedSuggestions.has(suggestion));
 
       return suggestions[0] ?? null;
+    };
+
+    const getSuggestion = (
+      state: EditorState,
+      currentLine: string,
+    ): { text: string; isAi: boolean } | null => {
+      if (options.disabled?.()) return null;
+      if (!isCursorAtEnd(state)) return null;
+
+      const aiSuggestion = getAiSuggestion();
+      if (aiSuggestion) {
+        return { text: aiSuggestion, isAi: true };
+      }
+
+      const staticSuggestion = getStaticSuggestion(state, currentLine);
+      if (staticSuggestion) {
+        const remainingText = staticSuggestion.slice(currentLine.length);
+        if (remainingText) {
+          return { text: remainingText, isAi: false };
+        }
+      }
+
+      return null;
     };
 
     return [
@@ -220,7 +252,7 @@ export const GhostText = Extension.create<GhostTextOptions>({
         key,
         props: {
           handleKeyDown(view, event) {
-            if (event.key !== "Tab") return false;
+            if (event.key !== "Tab" && event.key !== "Enter") return false;
             if (options.disabled?.()) return false;
 
             const { state } = view;
@@ -231,22 +263,43 @@ export const GhostText = Extension.create<GhostTextOptions>({
 
             const pos = selection.$cursor.pos;
             const lineStart = state.doc.resolve(pos).start();
-            const currentLine = state.doc.textBetween(lineStart, pos, "\n", "\0");
-            if (!currentLine) return false;
+            const currentLine = state.doc.textBetween(
+              lineStart,
+              pos,
+              "\n",
+              "\0",
+            );
 
-            const suggestion = getSuggestion(state, currentLine);
+            const suggestion = getSuggestion(state, currentLine || "");
             if (!suggestion) return false;
 
-            const remainingText = suggestion.slice(currentLine.length);
-            if (!remainingText) return false;
+            const textToInsert = suggestion.text;
+            if (!textToInsert) return false;
 
             event.preventDefault();
 
             const tr = state.tr;
-            tr.insertText(remainingText, pos);
+            tr.insertText(textToInsert, pos);
             view.dispatch(tr);
-            usedSuggestions.add(suggestion);
+
+            if (suggestion.isAi) {
+              options.onAiSuggestionAccepted?.();
+            } else {
+              usedSuggestions.add(currentLine + textToInsert);
+            }
             return true;
+          },
+          handleDOMEvents: {
+            keydown(view, event) {
+              if (event.key === "Escape") {
+                const aiSuggestion = getAiSuggestion();
+                if (aiSuggestion) {
+                  options.onAiSuggestionAccepted?.();
+                  return true;
+                }
+              }
+              return false;
+            },
           },
           decorations: (state) => {
             if (options.disabled?.()) return DecorationSet.empty;
@@ -258,18 +311,19 @@ export const GhostText = Extension.create<GhostTextOptions>({
             const pos = selection.$cursor.pos;
             const lineStart = doc.resolve(pos).start();
             const currentLine = doc.textBetween(lineStart, pos, "\n", "\0");
-            if (!currentLine) return DecorationSet.empty;
 
-            const suggestion = getSuggestion(state, currentLine);
+            const suggestion = getSuggestion(state, currentLine || "");
             if (!suggestion) return DecorationSet.empty;
 
-            const remainingText = suggestion.slice(currentLine.length);
-            if (!remainingText) return DecorationSet.empty;
+            const textToShow = suggestion.text;
+            if (!textToShow) return DecorationSet.empty;
 
             const decoration = Decoration.widget(pos, () => {
               const span = document.createElement("span");
-              span.textContent = remainingText;
-              span.className = "ghost-text-suggestion";
+              span.textContent = textToShow;
+              span.className = suggestion.isAi
+                ? "ghost-text-suggestion ghost-text-ai"
+                : "ghost-text-suggestion";
               return span;
             });
 

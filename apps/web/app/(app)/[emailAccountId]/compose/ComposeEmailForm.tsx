@@ -70,10 +70,7 @@ export type ReplyingToEmail = {
 };
 
 const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const wrapTextInParagraphs = (value: string) => {
   const escaped = escapeHtml(value);
@@ -130,7 +127,6 @@ export const ComposeEmailForm = ({
   const [isAiSuggesting, setIsAiSuggesting] = useState(false);
   const aiSuggestionAbort = useRef<AbortController | null>(null);
   const aiSuggestionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const ghostTextDisabledRef = useRef(false);
   const recipientNameRef = useRef<string | undefined>(undefined);
   const senderNameRef = useRef<string | undefined>(undefined);
   const ghostHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -551,8 +547,7 @@ export const ComposeEmailForm = ({
     setIsTemplateDialogOpen(false);
     setTemplateName("");
     toastSuccess({
-      description:
-        existingIndex >= 0 ? "Template updated." : "Template saved.",
+      description: existingIndex >= 0 ? "Template updated." : "Template saved.",
     });
   }, [getValues, persistTemplates, templateName, templates]);
 
@@ -641,12 +636,6 @@ export const ComposeEmailForm = ({
       }
     };
   }, [aiDraft, draftHtml, isAiContinuing, isAiDrafting, fetchAiSuggestion]);
-
-  useEffect(() => {
-    ghostTextDisabledRef.current = Boolean(
-      aiSuggestion || isAiSuggesting || isAiDrafting || isAiContinuing || aiDraft,
-    );
-  }, [aiSuggestion, isAiSuggesting, isAiDrafting, isAiContinuing, aiDraft]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1071,7 +1060,9 @@ export const ComposeEmailForm = ({
         ghostTextOptions={{
           senderName: () => senderNameRef.current,
           recipientName: () => recipientNameRef.current,
-          disabled: () => ghostTextDisabledRef.current,
+          disabled: () => isAiDrafting || isAiContinuing || !!aiDraft,
+          aiSuggestion: () => aiSuggestion,
+          onAiSuggestionAccepted: () => setAiSuggestion(null),
         }}
         onMoreClick={
           !replyingToEmail?.quotedContentHtml || showFullContent
@@ -1081,66 +1072,62 @@ export const ComposeEmailForm = ({
       />
       {showGhostHint && (
         <div className="mt-2 text-xs text-muted-foreground">
-          Tip: press Tab to accept inline suggestions.
+          Tip: press{" "}
+          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+            Tab
+          </kbd>{" "}
+          to accept inline suggestions
         </div>
       )}
 
       {(aiSuggestion || isAiSuggesting) && (
-        <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 text-sm dark:border-blue-800 dark:bg-blue-950/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <SparklesIcon className="h-3.5 w-3.5 text-blue-500" />
-              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
-                {isAiSuggesting ? "Generating suggestion..." : "AI suggestion"}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={fetchAiSuggestion}
-                disabled={isAiSuggesting}
-              >
-                <RefreshCwIcon className={`mr-1 h-3 w-3 ${isAiSuggesting ? "animate-spin" : ""}`} />
-                Regenerate
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 px-2 text-xs"
-                onClick={() => setAiSuggestion(null)}
-              >
-                <XIcon className="h-3 w-3" />
-              </Button>
-            </div>
+        <div className="flex items-center justify-between rounded-md border border-blue-200 bg-blue-50/50 px-3 py-2 text-sm dark:border-blue-800 dark:bg-blue-950/30">
+          <div className="flex items-center gap-2">
+            {isAiSuggesting ? (
+              <>
+                <div className="h-3 w-3 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+                <span className="text-xs text-muted-foreground">
+                  Generating...
+                </span>
+              </>
+            ) : (
+              <>
+                <SparklesIcon className="h-3.5 w-3.5 text-blue-500" />
+                <span className="text-xs text-muted-foreground">
+                  Press{" "}
+                  <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+                    Tab
+                  </kbd>{" "}
+                  to accept
+                </span>
+              </>
+            )}
           </div>
-          {aiSuggestion ? (
-            <p className="mt-2 whitespace-pre-wrap text-foreground">
-              {aiSuggestion}
-            </p>
-          ) : (
-            <div className="mt-2 flex items-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
-              <span className="text-muted-foreground">Thinking...</span>
-            </div>
-          )}
-          {aiSuggestion && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={applyAiSuggestion}
-              >
-                Insert
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                or press <kbd className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-700">Tab</kbd> to accept
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={fetchAiSuggestion}
+              disabled={isAiSuggesting}
+              title="Regenerate"
+            >
+              <RefreshCwIcon
+                className={`h-3 w-3 ${isAiSuggesting ? "animate-spin" : ""}`}
+              />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => setAiSuggestion(null)}
+              title="Dismiss"
+            >
+              <XIcon className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
       )}
 

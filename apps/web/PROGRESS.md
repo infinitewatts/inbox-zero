@@ -4,7 +4,7 @@
 
 ## Summary
 
-All batches completed through Batch 5. Total: **12 commits** across AI improvements, UI refresh, UX enhancements, performance, and keyboard shortcuts.
+All batches completed through Batch 6. Total: **13 commits** across AI improvements, UI refresh, UX enhancements, performance, keyboard shortcuts, and ghost typing.
 
 ---
 
@@ -43,7 +43,12 @@ All batches completed through Batch 5. Total: **12 commits** across AI improveme
 ### Batch 5: Fast Inbox UX (Keyboard Shortcuts)
 | Commit | Description |
 |--------|-------------|
-| `pending` | Gmail-style keyboard navigation (j/k, g+key, etc.) |
+| `3653da8b1` | Gmail-style keyboard navigation (j/k, g+key, etc.) |
+
+### Batch 6: Ghost Typing (Inline AI Autocomplete)
+| Commit | Description |
+|--------|-------------|
+| `pending` | Inline AI suggestions with Tab/Enter to accept |
 
 ---
 
@@ -63,6 +68,13 @@ All batches completed through Batch 5. Total: **12 commits** across AI improveme
 - Blue accent panel
 - Regenerate button
 - Spinner + Tab hint
+
+### Ghost Typing (Copilot-style)
+- AI suggestions appear inline as grayed/blue text
+- Tab or Enter to accept suggestion
+- Esc to dismiss
+- Debounced API calls (800ms after typing stops)
+- Compact status bar with regenerate/dismiss buttons
 
 ### Command Palette
 - `/` shortcut opens AI Assistant
