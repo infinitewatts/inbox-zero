@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getEmailTerminology } from "@/utils/terminology";
 import {
@@ -18,6 +18,7 @@ import {
   FileTextIcon,
   InboxIcon,
   type LucideIcon,
+  MailOpenIcon,
   MailsIcon,
   MessagesSquareIcon,
   PenIcon,
@@ -92,6 +93,17 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
+      // Email open tracking activity feed
+      ...(env.NEXT_PUBLIC_EMAIL_TRACKER_URL
+        ? [
+            {
+              name: "Open Activity",
+              href: prefixPath(currentEmailAccountId, "/activity"),
+              icon: MailOpenIcon,
+              new: true,
+            },
+          ]
+        : []),
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
@@ -155,57 +167,6 @@ export const useNavigation = () => {
   };
 };
 
-const topMailLinks: NavItem[] = [
-  {
-    name: "Inbox",
-    icon: InboxIcon,
-    href: "?type=inbox",
-  },
-  {
-    name: "Drafts",
-    icon: FileIcon,
-    href: "?type=draft",
-  },
-  {
-    name: "Sent",
-    icon: SendIcon,
-    href: "?type=sent",
-  },
-  {
-    name: "Archived",
-    icon: ArchiveIcon,
-    href: "?type=archive",
-  },
-];
-
-const bottomMailLinks: NavItem[] = [
-  {
-    name: "Personal",
-    icon: PersonStandingIcon,
-    href: "?type=CATEGORY_PERSONAL",
-  },
-  {
-    name: "Social",
-    icon: Users2Icon,
-    href: "?type=CATEGORY_SOCIAL",
-  },
-  {
-    name: "Updates",
-    icon: AlertCircleIcon,
-    href: "?type=CATEGORY_UPDATES",
-  },
-  {
-    name: "Forums",
-    icon: MessagesSquareIcon,
-    href: "?type=CATEGORY_FORUMS",
-  },
-  {
-    name: "Promotions",
-    icon: RatioIcon,
-    href: "?type=CATEGORY_PROMOTIONS",
-  },
-];
-
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const { emailAccountId, emailAccount } = useAccount();
@@ -252,7 +213,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
         <SidebarGroupContent>
           {showMailNav ? (
-            <MailNav path={path} />
+            <MailNav />
           ) : (
             <SidebarGroup>
               <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -293,40 +254,106 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   );
 }
 
-function MailNav({ path }: { path: string }) {
+function MailNav() {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
-  const { provider } = useAccount();
+  const { provider, emailAccountId, emailAccount } = useAccount();
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
+  const path = usePathname();
+  const searchParams = useSearchParams();
   const terminology = getEmailTerminology(provider);
+  const mailBasePath = prefixPath(currentEmailAccountId, "/mail");
+  const currentType = searchParams.get("type");
+  const currentLabelId = searchParams.get("labelId");
+
+  const topMailLinks = useMemo<NavItem[]>(
+    () => [
+      {
+        name: "Inbox",
+        icon: InboxIcon,
+        href: `${mailBasePath}?type=inbox`,
+        active: !currentType || currentType === "inbox",
+      },
+      {
+        name: "Drafts",
+        icon: FileIcon,
+        href: `${mailBasePath}?type=draft`,
+        active: currentType === "draft",
+      },
+      {
+        name: "Sent",
+        icon: SendIcon,
+        href: `${mailBasePath}?type=sent`,
+        active: currentType === "sent",
+      },
+      {
+        name: "Archived",
+        icon: ArchiveIcon,
+        href: `${mailBasePath}?type=archive`,
+        active: currentType === "archive",
+      },
+    ],
+    [currentType, mailBasePath],
+  );
+
+  const bottomMailLinks = useMemo<NavItem[]>(
+    () => [
+      {
+        name: "Personal",
+        icon: PersonStandingIcon,
+        href: `${mailBasePath}?type=CATEGORY_PERSONAL`,
+        active: currentType === "CATEGORY_PERSONAL",
+      },
+      {
+        name: "Social",
+        icon: Users2Icon,
+        href: `${mailBasePath}?type=CATEGORY_SOCIAL`,
+        active: currentType === "CATEGORY_SOCIAL",
+      },
+      {
+        name: "Updates",
+        icon: AlertCircleIcon,
+        href: `${mailBasePath}?type=CATEGORY_UPDATES`,
+        active: currentType === "CATEGORY_UPDATES",
+      },
+      {
+        name: "Forums",
+        icon: MessagesSquareIcon,
+        href: `${mailBasePath}?type=CATEGORY_FORUMS`,
+        active: currentType === "CATEGORY_FORUMS",
+      },
+      {
+        name: "Promotions",
+        icon: RatioIcon,
+        href: `${mailBasePath}?type=CATEGORY_PROMOTIONS`,
+        active: currentType === "CATEGORY_PROMOTIONS",
+      },
+    ],
+    [currentType, mailBasePath],
+  );
 
   // Transform user labels into NavItems
   const labelNavItems = useMemo(() => {
-    const searchParams = new URLSearchParams(path.split("?")[1] || "");
-    const currentLabelId = searchParams.get("labelId");
-
     return visibleLabels.map((label) => ({
       name: label.name ?? "",
       icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
+      href: `${mailBasePath}?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));
-  }, [visibleLabels, path]);
+  }, [currentLabelId, mailBasePath, visibleLabels]);
 
   // Transform hidden labels into NavItems
   const hiddenLabelNavItems = useMemo(() => {
-    const searchParams = new URLSearchParams(path.split("?")[1] || "");
-    const currentLabelId = searchParams.get("labelId");
-
     return hiddenLabels.map((label) => ({
       name: label.name ?? "",
       icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
+      href: `${mailBasePath}?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));
-  }, [hiddenLabels, path]);
+  }, [currentLabelId, hiddenLabels, mailBasePath]);
 
   return (
     <>

@@ -26,6 +26,7 @@ import { Loading } from "@/components/Loading";
 import { MessageText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
+import { OpenTrackingBadge } from "@/components/email-list/OpenTrackingBadge";
 
 export function EmailMessage({
   message,
@@ -160,6 +161,9 @@ function TopBar({
         )}
       </div>
       <div className="flex items-center space-x-2">
+        {/* Email open tracking - only shows for sent messages with tracking */}
+        <OpenTrackingBadge message={message} />
+
         <p className="mt-1 whitespace-nowrap text-sm text-muted-foreground sm:ml-3 sm:mt-0">
           <time dateTime={message.headers.date}>
             {formatShortDate(new Date(message.headers.date))}

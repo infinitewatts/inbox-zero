@@ -29,6 +29,10 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local agent instructions
+AGENTS.md
+**/CLAUDE.md
+
 # vercel
 .vercel
 
@@ -69,6 +73,7 @@ apps/web/generated
 # docker compose override file
 docker-compose.override.yaml
 docker-compose.override.yml
+deploy/docker-compose.nas.yml
 
 # Private submodule configuration (generated at build time)
 .gitmodules

@@ -103,6 +103,7 @@ export default function Mail(props: {
             emails={allThreads}
             refetch={refetch}
             type={searchParams.type}
+            labelId={searchParams.labelId}
             showLoadMore={showLoadMore}
             handleLoadMore={handleLoadMore}
             isLoadingMore={isLoadingMore}

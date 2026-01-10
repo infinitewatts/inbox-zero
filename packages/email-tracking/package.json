@@ -1,0 +1,18 @@
+{
+  "name": "@inboxzero/email-tracking",
+  "version": "0.0.1",
+  "description": "Email open tracking via pixel injection",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "nanoid": "5.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "tsconfig": "workspace:*",
+    "typescript": "5.9.3"
+  }
+}

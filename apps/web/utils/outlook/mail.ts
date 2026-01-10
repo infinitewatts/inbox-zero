@@ -30,13 +30,11 @@ interface OutlookMessageRequest {
   isDraft?: boolean;
 }
 
-type SentEmailResult = Pick<Message, "id" | "conversationId">;
-
 export async function sendEmailWithHtml(
   client: OutlookClient,
   body: SendEmailBody,
   logger: Logger,
-): Promise<SentEmailResult> {
+) {
   ensureEmailSendingEnabled();
 
   const message: OutlookMessageRequest = {
@@ -61,23 +59,11 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  await withOutlookRetry(
-    () =>
-      client.getClient().api("/me/sendMail").post({
-        message,
-        saveToSentItems: true,
-      }),
+  const result: Message = await withOutlookRetry(
+    () => client.getClient().api("/me/messages").post(message),
     logger,
   );
-
-  // /me/sendMail returns 202 with no body, so we can't get the sent message ID.
-  // Graph doesn't support filtering by internetMessageHeaders, so we can't query for it.
-  // conversationId (threadId) is preserved - that's what matters for reply tracking.
-  // Empty id means auto-expand won't work in EmailThread, but we don't show that for Outlook.
-  return {
-    id: "",
-    conversationId: message.conversationId,
-  };
+  return result;
 }
 
 export async function sendEmailWithPlainText(

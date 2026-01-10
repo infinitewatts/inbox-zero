@@ -7,6 +7,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
 
@@ -30,6 +31,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Message</DialogTitle>
+            <DialogDescription className="sr-only">
+              Compose a new email message.
+            </DialogDescription>
           </DialogHeader>
           <ComposeEmailFormLazy onSuccess={closeModal} />
         </DialogContent>

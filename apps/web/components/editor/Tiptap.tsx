@@ -7,10 +7,16 @@ import { Placeholder } from "@tiptap/extension-placeholder";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
 import { EnterHandler } from "@/components/editor/extensions";
+import {
+  GhostText,
+  type GhostTextOptions,
+} from "@/components/editor/ghostText";
 
 export type TiptapHandle = {
   appendContent: (content: string) => void;
+  setContent: (content: string) => void;
   getMarkdown: () => string | null;
+  getHtml: () => string | null;
 };
 
 export const Tiptap = forwardRef<
@@ -24,6 +30,7 @@ export const Tiptap = forwardRef<
     preservePastedLineBreaks?: boolean;
     placeholder?: string;
     output?: "html" | "markdown";
+    ghostTextOptions?: GhostTextOptions;
   }
 >(function Tiptap(
   {
@@ -35,6 +42,7 @@ export const Tiptap = forwardRef<
     preservePastedLineBreaks = false,
     placeholder,
     output = "html",
+    ghostTextOptions,
   },
   ref,
 ) {
@@ -66,6 +74,7 @@ export const Tiptap = forwardRef<
         placeholder: placeholder || "",
         showOnlyWhenEditable: true,
       }),
+      ...(ghostTextOptions ? [GhostText.configure(ghostTextOptions)] : []),
     ],
     content: initialContent,
     onUpdate: useCallback(
@@ -100,9 +109,17 @@ export const Tiptap = forwardRef<
       // Insert content at the end
       editor.commands.insertContentAt(endPosition, content);
     },
+    setContent: (content: string) => {
+      if (!editor) return;
+      editor.commands.setContent(content);
+    },
     getMarkdown: () => {
       if (!editor) return null;
       return editor.storage.markdown.getMarkdown();
+    },
+    getHtml: () => {
+      if (!editor) return null;
+      return editor.getHTML();
     },
   }));
 

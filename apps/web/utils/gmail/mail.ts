@@ -22,6 +22,7 @@ import {
 } from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
+import { addTrackingToEmail, parseRecipients } from "@inboxzero/email-tracking";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -67,12 +68,22 @@ const createRawMailMessage = async (
     messageText,
     attachments,
     replyToEmail,
+    trackingId,
   }: Omit<SendEmailBody, "attachments"> & {
     attachments?: Attachment[];
     messageText: string;
+    trackingId?: string;
   },
   from?: string,
 ) => {
+  const headers: Record<string, string> = {
+    "X-Mailer": "Inbox Zero Web",
+  };
+
+  if (trackingId) {
+    headers["X-Inbox-Zero-Tracking-Id"] = trackingId;
+  }
+
   return await createMail({
     from,
     to,
@@ -95,9 +106,7 @@ const createRawMailMessage = async (
       ? `${replyToEmail.references || ""} ${replyToEmail.headerMessageId}`.trim()
       : "",
     inReplyTo: replyToEmail ? replyToEmail.headerMessageId : "",
-    headers: {
-      "X-Mailer": "Inbox Zero Web",
-    },
+    headers,
   });
 };
 
@@ -109,6 +118,14 @@ export async function sendEmailWithHtml(
 ) {
   ensureEmailSendingEnabled();
 
+  // Inject tracking pixel
+  const recipients = parseRecipients(body.to, body.cc, body.bcc);
+  const { html: trackedHtml, emailId } = await addTrackingToEmail(
+    body.messageHtml,
+    recipients,
+    body.subject,
+  );
+
   let messageText: string;
 
   try {
@@ -119,7 +136,7 @@ export async function sendEmailWithHtml(
     messageText = body.messageHtml.replace(/<[^>]*>/g, "");
   }
 
-  const raw = await createRawMailMessage({ ...body, messageText });
+  const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText, trackingId: emailId });
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({
       userId: "me",
@@ -129,6 +146,9 @@ export async function sendEmailWithHtml(
       },
     }),
   );
+
+  logger.info("Email sent with tracking", { emailId, to: body.to });
+
   return result;
 }
 

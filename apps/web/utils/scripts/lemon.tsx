@@ -3,8 +3,17 @@
 import { env } from "@/env";
 import Script from "next/script";
 
+type LemonAffiliateWindow = Window & {
+  lemonSqueezyAffiliateConfig?: {
+    store: string;
+    debug: boolean;
+  };
+  createLemonSqueezyAffiliate?: () => void;
+};
+
 export function LemonScript() {
-  if (!env.NEXT_PUBLIC_LEMON_STORE_ID) return null;
+  const storeId = env.NEXT_PUBLIC_LEMON_STORE_ID;
+  if (!storeId) return null;
 
   return (
     <Script
@@ -16,13 +25,13 @@ export function LemonScript() {
       onLoad={() => {
         if (!window) return;
 
-        (window as any).lemonSqueezyAffiliateConfig = {
-          store: env.NEXT_PUBLIC_LEMON_STORE_ID,
+        const lemonWindow = window as LemonAffiliateWindow;
+        lemonWindow.lemonSqueezyAffiliateConfig = {
+          store: storeId,
           debug: true,
         };
 
-        if ((window as any).createLemonSqueezyAffiliate)
-          (window as any).createLemonSqueezyAffiliate();
+        lemonWindow.createLemonSqueezyAffiliate?.();
       }}
     />
   );

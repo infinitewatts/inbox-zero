@@ -13,6 +13,14 @@ import { formatDistanceToNow } from "date-fns";
 import { auth } from "@/utils/auth";
 import { getEmailTerminology } from "@/utils/terminology";
 
+type RuleHistoryAction = {
+  type?: string;
+  label?: string;
+  subject?: string;
+  content?: string;
+  to?: string;
+};
+
 export default async function RuleHistoryPage(props: {
   params: Promise<{ emailAccountId: string; ruleId: string }>;
 }) {
@@ -68,111 +76,117 @@ export default async function RuleHistoryPage(props: {
         </p>
       ) : (
         <div className="mt-6 space-y-4">
-          {ruleHistory.map((history) => (
-            <Card key={history.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
-                    Version {history.version}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      {triggerTypeLabels[history.triggerType] ||
-                        history.triggerType}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDistanceToNow(history.createdAt, {
-                        addSuffix: true,
-                      })}
-                    </span>
-                  </div>
-                </div>
-                {history.promptText && (
-                  <CardDescription className="mt-2">
-                    <strong>Prompt:</strong> {history.promptText}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="mb-1 font-semibold">Rule Details</h4>
-                    <dl className="grid grid-cols-1 gap-1 text-sm">
-                      <div className="flex gap-2">
-                        <dt className="font-medium">Name:</dt>
-                        <dd>{history.name}</dd>
-                      </div>
-                      {history.instructions && (
-                        <div className="flex gap-2">
-                          <dt className="font-medium">Instructions:</dt>
-                          <dd>{history.instructions}</dd>
-                        </div>
-                      )}
-                      <div className="flex gap-2">
-                        <dt className="font-medium">Status:</dt>
-                        <dd>
-                          {history.enabled ? "Enabled" : "Disabled"}
-                          {history.automate && " • Automated"}
-                          {history.runOnThreads && " • Runs on threads"}
-                        </dd>
-                      </div>
-                      {history.conditionalOperator && (
-                        <div className="flex gap-2">
-                          <dt className="font-medium">Operator:</dt>
-                          <dd>{history.conditionalOperator}</dd>
-                        </div>
-                      )}
-                    </dl>
-                  </div>
+          {ruleHistory.map((history) => {
+            const actions = Array.isArray(history.actions)
+              ? (history.actions as RuleHistoryAction[])
+              : [];
 
-                  {(history.from ||
-                    history.to ||
-                    history.subject ||
-                    history.body) && (
+            return (
+              <Card key={history.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      Version {history.version}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {triggerTypeLabels[history.triggerType] ||
+                          history.triggerType}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {formatDistanceToNow(history.createdAt, {
+                          addSuffix: true,
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                  {history.promptText && (
+                    <CardDescription className="mt-2">
+                      <strong>Prompt:</strong> {history.promptText}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
                     <div>
-                      <h4 className="mb-1 font-semibold">Static Conditions</h4>
+                      <h4 className="mb-1 font-semibold">Rule Details</h4>
                       <dl className="grid grid-cols-1 gap-1 text-sm">
-                        {history.from && (
+                        <div className="flex gap-2">
+                          <dt className="font-medium">Name:</dt>
+                          <dd>{history.name}</dd>
+                        </div>
+                        {history.instructions && (
                           <div className="flex gap-2">
-                            <dt className="font-medium">From:</dt>
-                            <dd className="font-mono">{history.from}</dd>
+                            <dt className="font-medium">Instructions:</dt>
+                            <dd>{history.instructions}</dd>
                           </div>
                         )}
-                        {history.to && (
+                        <div className="flex gap-2">
+                          <dt className="font-medium">Status:</dt>
+                          <dd>
+                            {history.enabled ? "Enabled" : "Disabled"}
+                            {history.automate && " • Automated"}
+                            {history.runOnThreads && " • Runs on threads"}
+                          </dd>
+                        </div>
+                        {history.conditionalOperator && (
                           <div className="flex gap-2">
-                            <dt className="font-medium">To:</dt>
-                            <dd className="font-mono">{history.to}</dd>
-                          </div>
-                        )}
-                        {history.subject && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">Subject:</dt>
-                            <dd className="font-mono">{history.subject}</dd>
-                          </div>
-                        )}
-                        {history.body && (
-                          <div className="flex gap-2">
-                            <dt className="font-medium">Body:</dt>
-                            <dd className="font-mono">{history.body}</dd>
+                            <dt className="font-medium">Operator:</dt>
+                            <dd>{history.conditionalOperator}</dd>
                           </div>
                         )}
                       </dl>
                     </div>
-                  )}
 
-                  {history.systemType && (
-                    <div>
-                      <h4 className="mb-1 font-semibold">System Type</h4>
-                      <p className="text-sm">{history.systemType}</p>
-                    </div>
-                  )}
+                    {(history.from ||
+                      history.to ||
+                      history.subject ||
+                      history.body) && (
+                      <div>
+                        <h4 className="mb-1 font-semibold">
+                          Static Conditions
+                        </h4>
+                        <dl className="grid grid-cols-1 gap-1 text-sm">
+                          {history.from && (
+                            <div className="flex gap-2">
+                              <dt className="font-medium">From:</dt>
+                              <dd className="font-mono">{history.from}</dd>
+                            </div>
+                          )}
+                          {history.to && (
+                            <div className="flex gap-2">
+                              <dt className="font-medium">To:</dt>
+                              <dd className="font-mono">{history.to}</dd>
+                            </div>
+                          )}
+                          {history.subject && (
+                            <div className="flex gap-2">
+                              <dt className="font-medium">Subject:</dt>
+                              <dd className="font-mono">{history.subject}</dd>
+                            </div>
+                          )}
+                          {history.body && (
+                            <div className="flex gap-2">
+                              <dt className="font-medium">Body:</dt>
+                              <dd className="font-mono">{history.body}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      </div>
+                    )}
 
-                  {history.actions && (
-                    <div>
-                      <h4 className="mb-1 font-semibold">Actions</h4>
-                      <div className="space-y-1">
-                        {(history.actions as any[]).map(
-                          (action: any, index: number) => (
+                    {history.systemType && (
+                      <div>
+                        <h4 className="mb-1 font-semibold">System Type</h4>
+                        <p className="text-sm">{history.systemType}</p>
+                      </div>
+                    )}
+
+                    {actions.length > 0 && (
+                      <div>
+                        <h4 className="mb-1 font-semibold">Actions</h4>
+                        <div className="space-y-1">
+                          {actions.map((action, index) => (
                             <div key={index} className="text-sm">
                               <Badge variant="secondary" className="mr-2">
                                 {action.type}
@@ -197,15 +211,15 @@ export default async function RuleHistoryPage(props: {
                               )}
                               {action.to && <span>To: {action.to}</span>}
                             </div>
-                          ),
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

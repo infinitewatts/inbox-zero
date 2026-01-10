@@ -35,6 +35,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export function List({
   emails,
   type,
+  labelId,
   refetch,
   showLoadMore,
   isLoadingMore,
@@ -42,6 +43,7 @@ export function List({
 }: {
   emails: Thread[];
   type?: string;
+  labelId?: string;
   refetch: (options?: { removedThreadIds?: string[] }) => void;
   showLoadMore?: boolean;
   isLoadingMore?: boolean;
@@ -49,6 +51,21 @@ export function List({
 }) {
   const { emailAccountId } = useAccount();
   const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
+
+  const getTabHref = useCallback(
+    (tab: string) => {
+      const params = new URLSearchParams();
+      if (type === "label" && labelId) {
+        params.set("type", "label");
+        params.set("labelId", labelId);
+      } else if (type) {
+        params.set("type", type);
+      }
+      params.set("tab", tab);
+      return prefixPath(emailAccountId, `/mail?${params.toString()}`);
+    },
+    [emailAccountId, labelId, type],
+  );
 
   const planned = useMemo(() => {
     return emails.filter((email) => email.plan?.rule);
@@ -59,15 +76,15 @@ export function List({
       {
         label: "All",
         value: "all",
-        href: "/mail?tab=all",
+        href: getTabHref("all"),
       },
       {
         label: `Planned${planned.length ? ` (${planned.length})` : ""}`,
         value: "planned",
-        href: "/mail?tab=planned",
+        href: getTabHref("planned"),
       },
     ],
-    [planned],
+    [getTabHref, planned],
   );
 
   // only show tabs if there are planned emails or categorized emails
