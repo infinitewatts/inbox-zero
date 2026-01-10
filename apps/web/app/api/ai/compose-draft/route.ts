@@ -30,12 +30,12 @@ export const POST = withEmailAccount(async (request) => {
   const system = isReply
     ? `You are an expert email assistant drafting reply emails.
 Write a concise, professional reply in the user's voice.
-Return HTML for the email body only (no subject line, no signature unless explicitly asked).
+Return the email body as HTML in JSON format (no subject line, no signature unless explicitly asked).
 Reference relevant details from the original email when appropriate.
 Avoid placeholders unless required. Do not mention being an AI.`
     : `You are an expert email assistant drafting new outbound emails.
 Write a concise, professional message in the user's voice.
-Return HTML for the email body only (no subject line, no signature unless explicitly asked).
+Return the email body as HTML in JSON format (no subject line, no signature unless explicitly asked).
 Avoid placeholders unless required. Do not mention being an AI.`;
 
   const replyContextPrompt = replyContext

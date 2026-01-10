@@ -522,11 +522,15 @@ function ResizeGroup({
       direction={isMobile ? "vertical" : "horizontal"}
       className="h-full"
     >
-      <ResizablePanel style={{ overflow: "auto" }} defaultSize={40} minSize={20}>
+      <ResizablePanel
+        style={{ overflow: "auto", maxWidth: isMobile ? undefined : "400px" }}
+        defaultSize={30}
+        minSize={15}
+      >
         {left}
       </ResizablePanel>
       <ResizableHandle withHandle />
-      <ResizablePanel defaultSize={60} minSize={30}>
+      <ResizablePanel defaultSize={70} minSize={40}>
         {right}
       </ResizablePanel>
     </ResizablePanelGroup>
