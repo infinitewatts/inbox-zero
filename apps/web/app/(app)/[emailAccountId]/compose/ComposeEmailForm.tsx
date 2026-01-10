@@ -51,6 +51,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { Textarea } from "@/components/ui/textarea";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { htmlToText } from "@/utils/parse/parseHtml.client";
 
 export type ReplyingToEmail = {
@@ -351,7 +352,10 @@ export const ComposeEmailForm = ({
     try {
       const res = await fetch("/api/ai/compose-draft", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+        },
         body: JSON.stringify({
           prompt: aiPrompt.trim(),
           subject: subject?.trim() || undefined,
@@ -375,7 +379,7 @@ export const ComposeEmailForm = ({
     } finally {
       setIsAiDrafting(false);
     }
-  }, [aiPrompt, subject]);
+  }, [aiPrompt, subject, emailAccountId]);
 
   const handleAiContinue = useCallback(async () => {
     const existing = editorRef.current?.getMarkdown() || "";
@@ -393,7 +397,10 @@ export const ComposeEmailForm = ({
 
       const res = await fetch("/api/ai/compose-autocomplete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+        },
         body: JSON.stringify({ prompt }),
       });
 
@@ -411,7 +418,7 @@ export const ComposeEmailForm = ({
     } finally {
       setIsAiContinuing(false);
     }
-  }, [subject]);
+  }, [subject, emailAccountId]);
 
   const applyAiDraft = useCallback(
     (mode: "replace" | "append") => {
