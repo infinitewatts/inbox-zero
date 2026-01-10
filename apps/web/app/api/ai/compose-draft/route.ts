@@ -23,19 +23,30 @@ export const POST = withEmailAccount(async (request) => {
   const writingStyle = await getWritingStyle({ emailAccountId });
 
   const json = await request.json();
-  const { prompt, subject, existingContent } = composeDraftBody.parse(json);
+  const { prompt, subject, existingContent, replyContext } =
+    composeDraftBody.parse(json);
 
-  const system = `You are an expert email assistant drafting new outbound emails.
+  const isReply = Boolean(replyContext);
+  const system = isReply
+    ? `You are an expert email assistant drafting reply emails.
+Write a concise, professional reply in the user's voice.
+Return HTML for the email body only (no subject line, no signature unless explicitly asked).
+Reference relevant details from the original email when appropriate.
+Avoid placeholders unless required. Do not mention being an AI.`
+    : `You are an expert email assistant drafting new outbound emails.
 Write a concise, professional message in the user's voice.
 Return HTML for the email body only (no subject line, no signature unless explicitly asked).
 Avoid placeholders unless required. Do not mention being an AI.`;
 
+  const replyContextPrompt = replyContext
+    ? `Original email${replyContext.from ? ` from ${replyContext.from}` : ""}${replyContext.date ? ` (${replyContext.date})` : ""}:\n${replyContext.content}`
+    : null;
+
   const userPrompt = [
-    emailAccount.about
-      ? `About the user:\n${emailAccount.about}`
-      : null,
+    emailAccount.about ? `About the user:\n${emailAccount.about}` : null,
     writingStyle ? `Writing style:\n${writingStyle}` : null,
     subject ? `Subject:\n${subject}` : null,
+    replyContextPrompt,
     existingContent ? `Existing draft:\n${existingContent}` : null,
     `Instructions:\n${prompt}`,
   ]

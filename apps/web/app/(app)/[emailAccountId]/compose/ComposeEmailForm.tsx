@@ -350,6 +350,14 @@ export const ComposeEmailForm = ({
     setAiSuggestion(null);
     setIsAiDrafting(true);
     try {
+      const replyContext = replyingToEmail?.quotedContentHtml
+        ? {
+            from: replyingToEmail.to,
+            content: htmlToText(replyingToEmail.quotedContentHtml),
+            date: replyingToEmail.date,
+          }
+        : undefined;
+
       const res = await fetch("/api/ai/compose-draft", {
         method: "POST",
         headers: {
@@ -360,6 +368,7 @@ export const ComposeEmailForm = ({
           prompt: aiPrompt.trim(),
           subject: subject?.trim() || undefined,
           existingContent: editorRef.current?.getMarkdown() || undefined,
+          replyContext,
         }),
       });
 
@@ -379,7 +388,7 @@ export const ComposeEmailForm = ({
     } finally {
       setIsAiDrafting(false);
     }
-  }, [aiPrompt, subject, emailAccountId]);
+  }, [aiPrompt, subject, emailAccountId, replyingToEmail]);
 
   const handleAiContinue = useCallback(async () => {
     const existing = editorRef.current?.getMarkdown() || "";
