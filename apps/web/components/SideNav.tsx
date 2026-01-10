@@ -262,6 +262,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 function MailNav() {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
   const { provider, emailAccountId, emailAccount } = useAccount();
   const currentEmailAccountId = emailAccount?.id || emailAccountId;
@@ -381,46 +382,57 @@ function MailNav() {
       <SidebarGroup>
         <SideNavMenu items={topMailLinks} activeHref={path} />
       </SidebarGroup>
+
       <SidebarGroup>
-        <SidebarGroupLabel>Categories</SidebarGroupLabel>
-        <SideNavMenu items={bottomMailLinks} activeHref={path} />
+        <button
+          type="button"
+          onClick={() => setShowCategories(!showCategories)}
+          className="flex w-full items-center px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          {showCategories ? (
+            <ChevronDownIcon className="mr-1 size-3.5" />
+          ) : (
+            <ChevronRightIcon className="mr-1 size-3.5" />
+          )}
+          <span>Categories</span>
+        </button>
+        {showCategories && (
+          <SideNavMenu items={bottomMailLinks} activeHref={path} />
+        )}
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>
-          {terminology.label.pluralCapitalized}
-        </SidebarGroupLabel>
-        <LoadingContent loading={isLoading}>
-          {visibleLabels.length > 0 ? (
-            <SideNavMenu items={labelNavItems} activeHref={path} />
+        <button
+          type="button"
+          onClick={() => setShowHiddenLabels(!showHiddenLabels)}
+          className="flex w-full items-center px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+        >
+          {showHiddenLabels ? (
+            <ChevronDownIcon className="mr-1 size-3.5" />
           ) : (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              No {terminology.label.plural}
-            </div>
+            <ChevronRightIcon className="mr-1 size-3.5" />
           )}
-
-          {/* Hidden labels toggle */}
-          {hiddenLabels.length > 0 && (
-            <>
-              <button
-                type="button"
-                onClick={() => setShowHiddenLabels(!showHiddenLabels)}
-                className="flex w-full items-center px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                {showHiddenLabels ? (
-                  <ChevronDownIcon className="mr-1 size-4" />
-                ) : (
-                  <ChevronRightIcon className="mr-1 size-4" />
-                )}
-                <span>More</span>
-              </button>
-
-              {showHiddenLabels && (
+          <span>{terminology.label.pluralCapitalized}</span>
+          {visibleLabels.length + hiddenLabels.length > 0 && (
+            <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/60">
+              {visibleLabels.length + hiddenLabels.length}
+            </span>
+          )}
+        </button>
+        {showHiddenLabels && (
+          <LoadingContent loading={isLoading}>
+            {visibleLabels.length > 0 || hiddenLabels.length > 0 ? (
+              <>
+                <SideNavMenu items={labelNavItems} activeHref={path} />
                 <SideNavMenu items={hiddenLabelNavItems} activeHref={path} />
-              )}
-            </>
-          )}
-        </LoadingContent>
+              </>
+            ) : (
+              <div className="px-3 py-2 text-xs text-muted-foreground">
+                No {terminology.label.plural}
+              </div>
+            )}
+          </LoadingContent>
+        )}
       </SidebarGroup>
     </>
   );
