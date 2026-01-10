@@ -4,7 +4,7 @@
 
 ## Summary
 
-All batches completed through Batch 3. Total: **10 commits** across AI improvements, UI refresh, and UX enhancements.
+All batches completed through Batch 4. Total: **11 commits** across AI improvements, UI refresh, UX enhancements, and performance optimizations.
 
 ---
 
@@ -34,6 +34,11 @@ All batches completed through Batch 3. Total: **10 commits** across AI improveme
 | Commit | Description |
 |--------|-------------|
 | `dfbbdd4c3` | Command palette Ask commands + Ask UI improvements |
+
+### Batch 4: Performance
+| Commit | Description |
+|--------|-------------|
+| `pending` | Email list virtualization with @tanstack/react-virtual |
 
 ---
 
@@ -87,10 +92,14 @@ All batches completed through Batch 3. Total: **10 commits** across AI improveme
 
 ---
 
-## Remaining: Batch 4 (Performance)
+## Performance Optimizations (Batch 4)
 
-- [ ] Email list virtualization
-- [ ] Lazy loading improvements
+### Email List Virtualization
+- Uses `@tanstack/react-virtual` for efficient rendering
+- Only renders visible rows + overscan buffer (5 items)
+- Dynamic row heights: 44px normal, 96px split view
+- Automatic re-measurement on split view toggle
+- Handles "Load More" button as virtual item
 
 ---
 
@@ -101,8 +110,8 @@ All batches completed through Batch 3. Total: **10 commits** across AI improveme
 - `compose/ComposeEmailForm.tsx` - Smart replies + autocomplete UX
 
 **UI:**
-- `components/email-list/EmailListItem.tsx` - Tighter rows
-- `components/email-list/EmailList.tsx` - Action bar styling
+- `components/email-list/EmailListItem.tsx` - Tighter rows, simplified component
+- `components/email-list/EmailList.tsx` - Action bar styling, virtualization
 - `components/SideNav.tsx` - Collapsible sections
 - `app/(app)/[emailAccountId]/mail/BetaBanner.tsx` - Amber styling
 

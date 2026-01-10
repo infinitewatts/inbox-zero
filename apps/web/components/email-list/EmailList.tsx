@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { useQueryState } from "nuqs";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
@@ -31,6 +32,10 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+const ROW_HEIGHT_NORMAL = 44;
+const ROW_HEIGHT_SPLIT = 96;
+const LOAD_MORE_HEIGHT = 40;
 
 export function List({
   emails,
@@ -247,34 +252,33 @@ export function EmailList({
     [refetch, emailAccountId],
   );
 
-  const listRef = useRef<HTMLUListElement>(null);
-  const itemsRef = useRef<Map<string, HTMLLIElement> | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  // https://react.dev/learn/manipulating-the-dom-with-refs#how-to-manage-a-list-of-refs-using-a-ref-callback
-  function getMap() {
-    if (!itemsRef.current) {
-      // Initialize the Map on first usage.
-      itemsRef.current = new Map();
-    }
-    return itemsRef.current;
-  }
+  const rowHeight = openThreadId ? ROW_HEIGHT_SPLIT : ROW_HEIGHT_NORMAL;
+  const totalItems = threads.length + (showLoadMore ? 1 : 0);
 
-  // to scroll to a row when the side panel is opened
-  function scrollToId(threadId: string) {
-    const map = getMap();
-    const node = map.get(threadId);
+  const virtualizer = useVirtualizer({
+    count: totalItems,
+    getScrollElement: () => listRef.current,
+    estimateSize: (index) => {
+      if (showLoadMore && index === threads.length) return LOAD_MORE_HEIGHT;
+      return rowHeight;
+    },
+    overscan: 5,
+  });
 
-    // let the panel open first
-    setTimeout(() => {
-      if (listRef.current && node) {
-        // Calculate the position of the item relative to the container
-        const topPos = node.offsetTop - 117;
+  useEffect(() => {
+    virtualizer.measure();
+  }, [openThreadId, virtualizer]);
 
-        // Scroll the container to the item
-        listRef.current.scrollTop = topPos;
-      }
-    }, 100);
-  }
+  const scrollToIndex = useCallback(
+    (index: number) => {
+      setTimeout(() => {
+        virtualizer.scrollToIndex(index, { align: "start" });
+      }, 100);
+    },
+    [virtualizer],
+  );
 
   function advanceToAdjacentThread() {
     const openedRowIndex = threads.findIndex(
@@ -420,86 +424,102 @@ export function EmailList({
           </div>
         ) : (
           <ResizeGroup
-          left={
-            <ul
-              className="divide-y divide-border overflow-y-auto scroll-smooth"
-              ref={listRef}
-            >
-              {threads.map((thread) => {
-                const onOpen = () => {
-                  const alreadyOpen = !!openThreadId;
-                  setOpenThreadId(thread.id);
-
-                  if (!alreadyOpen) scrollToId(thread.id);
-
-                  markReadThreads({
-                    threadIds: [thread.id],
-                    onSuccess: () => refetch(),
-                    emailAccountId,
-                  });
-                };
-
-                return (
-                  <EmailListItem
-                    key={thread.id}
-                    ref={(node) => {
-                      const map = getMap();
-                      if (node) {
-                        map.set(thread.id, node);
-                      } else {
-                        map.delete(thread.id);
-                      }
-                    }}
-                    userEmail={userEmail}
-                    provider={provider}
-                    thread={thread}
-                    opened={openThreadId === thread.id}
-                    closePanel={closePanel}
-                    selected={selectedRows[thread.id]}
-                    onSelected={onSetSelectedRow}
-                    splitView={!!openThreadId}
-                    onClick={onOpen}
-                    onPlanAiAction={onPlanAiAction}
-                    onArchive={onArchive}
-                    refetch={refetch}
-                  />
-                );
-              })}
-              {showLoadMore && (
-                <Button
-                  variant="outline"
-                  className="mb-2 w-full"
-                  size={"sm"}
-                  onClick={handleLoadMore}
-                  disabled={isLoadingMore}
+            left={
+              <div
+                ref={listRef}
+                className="h-full overflow-y-auto scroll-smooth"
+              >
+                <div
+                  className="relative w-full"
+                  style={{ height: `${virtualizer.getTotalSize()}px` }}
                 >
-                  {
-                    <>
-                      {isLoadingMore ? (
-                        <ButtonLoader />
-                      ) : (
-                        <ChevronsDownIcon className="mr-2 h-4 w-4" />
-                      )}
-                      <span>Load more</span>
-                    </>
-                  }
-                </Button>
-              )}
-            </ul>
-          }
-          right={
-            !!(openThreadId && openedRow) && (
-              <EmailPanel
-                row={openedRow}
-                onPlanAiAction={onPlanAiAction}
-                onArchive={onArchive}
-                advanceToAdjacentThread={advanceToAdjacentThread}
-                close={closePanel}
-                refetch={refetch}
-              />
-            )
-          }
-        />
+                  {virtualizer.getVirtualItems().map((virtualItem) => {
+                    if (showLoadMore && virtualItem.index === threads.length) {
+                      return (
+                        <div
+                          key="load-more"
+                          className="absolute left-0 top-0 flex w-full items-center justify-center px-2"
+                          style={{
+                            height: `${virtualItem.size}px`,
+                            transform: `translateY(${virtualItem.start}px)`,
+                          }}
+                        >
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            size="sm"
+                            onClick={handleLoadMore}
+                            disabled={isLoadingMore}
+                          >
+                            {isLoadingMore ? (
+                              <ButtonLoader />
+                            ) : (
+                              <ChevronsDownIcon className="mr-2 h-4 w-4" />
+                            )}
+                            <span>Load more</span>
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    const thread = threads[virtualItem.index];
+                    if (!thread) return null;
+
+                    const onOpen = () => {
+                      const alreadyOpen = !!openThreadId;
+                      setOpenThreadId(thread.id);
+
+                      if (!alreadyOpen) scrollToIndex(virtualItem.index);
+
+                      markReadThreads({
+                        threadIds: [thread.id],
+                        onSuccess: () => refetch(),
+                        emailAccountId,
+                      });
+                    };
+
+                    return (
+                      <div
+                        key={thread.id}
+                        className="absolute left-0 top-0 w-full border-b border-border"
+                        style={{
+                          height: `${virtualItem.size}px`,
+                          transform: `translateY(${virtualItem.start}px)`,
+                        }}
+                      >
+                        <EmailListItem
+                          userEmail={userEmail}
+                          provider={provider}
+                          thread={thread}
+                          opened={openThreadId === thread.id}
+                          closePanel={closePanel}
+                          selected={selectedRows[thread.id]}
+                          onSelected={onSetSelectedRow}
+                          splitView={!!openThreadId}
+                          onClick={onOpen}
+                          onPlanAiAction={onPlanAiAction}
+                          onArchive={onArchive}
+                          refetch={refetch}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            }
+            right={
+              !!(openThreadId && openedRow) && (
+                <EmailPanel
+                  row={openedRow}
+                  onPlanAiAction={onPlanAiAction}
+                  onArchive={onArchive}
+                  advanceToAdjacentThread={advanceToAdjacentThread}
+                  close={closePanel}
+                  refetch={refetch}
+                />
+              )
+            }
+          />
         )}
       </div>
     </div>
