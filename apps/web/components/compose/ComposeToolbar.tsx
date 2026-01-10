@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  CheckIcon,
   FileTextIcon,
   PlayIcon,
   RefreshCwIcon,
   SaveIcon,
   SparklesIcon,
   TrashIcon,
+  UserIcon,
   WandSparklesIcon,
   XIcon,
 } from "lucide-react";
@@ -24,16 +26,17 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { COMPOSE_PERSONAS } from "@/utils/compose/personas";
 
 type ComposeTemplate = {
   id: string;
   name: string;
-  subject?: string;
-  to?: string;
-  cc?: string;
-  bcc?: string;
-  bodyHtml?: string;
-  updatedAt?: string;
+  subject?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  bodyHtml?: string | null;
+  updatedAt?: string | Date | null;
 };
 
 type ComposeToolbarProps = {
@@ -45,6 +48,8 @@ type ComposeToolbarProps = {
   templates: ComposeTemplate[];
   isGenerating: boolean;
   isContinuing: boolean;
+  selectedPersona: string | null;
+  onPersonaChange: (personaId: string | null) => void;
 };
 
 function IconButton({
@@ -91,8 +96,11 @@ export function ComposeToolbar({
   templates,
   isGenerating,
   isContinuing,
+  selectedPersona,
+  onPersonaChange,
 }: ComposeToolbarProps) {
   const isDisabled = isGenerating || isContinuing;
+  const currentPersona = COMPOSE_PERSONAS.find((p) => p.id === selectedPersona);
 
   return (
     <div className="flex items-center gap-1">
@@ -127,6 +135,54 @@ export function ComposeToolbar({
       />
 
       <div className="mx-1 h-5 w-px bg-border" />
+
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 px-2"
+              >
+                <UserIcon className="h-4 w-4" />
+                <span className="text-xs">
+                  {currentPersona?.name ?? "Tone"}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Writing tone</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem
+            onSelect={() => onPersonaChange(null)}
+            className="flex items-center justify-between"
+          >
+            <span>Default</span>
+            {!selectedPersona && <CheckIcon className="h-4 w-4" />}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {COMPOSE_PERSONAS.map((persona) => (
+            <DropdownMenuItem
+              key={persona.id}
+              onSelect={() => onPersonaChange(persona.id)}
+              className="flex flex-col items-start gap-0.5"
+            >
+              <div className="flex w-full items-center justify-between">
+                <span>{persona.name}</span>
+                {selectedPersona === persona.id && (
+                  <CheckIcon className="h-4 w-4" />
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {persona.description}
+              </span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <DropdownMenu>
         <Tooltip>

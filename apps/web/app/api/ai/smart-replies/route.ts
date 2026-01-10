@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
+import { getModel } from "@/utils/llms/model";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
 
@@ -67,14 +68,23 @@ Output exactly 3 replies with their tone.`;
     .filter((line) => line !== null)
     .join("\n");
 
+  const modelOptions = getModel(user.user, "economy");
+  const generateObject = createGenerateObject({
+    emailAccount: {
+      id: user.id,
+      userId: user.userId,
+      email: user.email,
+    },
+    label: "Smart replies",
+    modelOptions,
+  });
+
   try {
-    const result = await chatCompletionObject({
-      userAi: user.user,
-      prompt: userPrompt,
+    const result = await generateObject({
+      ...modelOptions,
       system,
+      prompt: userPrompt,
       schema: smartRepliesResponse,
-      userEmail: user.email,
-      usageLabel: "Smart replies",
     });
 
     return NextResponse.json(result.object);

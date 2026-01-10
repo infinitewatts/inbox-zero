@@ -8,6 +8,7 @@ import { createGenerateObject } from "@/utils/llms";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
+import { getPersonaPromptInstruction } from "@/utils/compose/personas";
 
 const logger = createScopedLogger("compose-draft");
 
@@ -33,11 +34,13 @@ export const POST = withEmailAccount(async (request) => {
   const writingStyle = await getWritingStyle({ emailAccountId });
 
   const json = await request.json();
-  const { prompt, subject, existingContent, replyContext } =
+  const { prompt, subject, existingContent, replyContext, persona } =
     composeDraftBody.parse(json);
 
+  const personaInstruction = getPersonaPromptInstruction(persona);
+
   const isReply = Boolean(replyContext);
-  const system = isReply
+  const baseSystem = isReply
     ? `You are an expert email assistant drafting reply emails.
 Write a concise, professional reply in the user's voice.
 Return the email body as HTML in JSON format (no subject line, no signature unless explicitly asked).
@@ -47,6 +50,10 @@ Avoid placeholders unless required. Do not mention being an AI.`
 Write a concise, professional message in the user's voice.
 Return the email body as HTML in JSON format (no subject line, no signature unless explicitly asked).
 Avoid placeholders unless required. Do not mention being an AI.`;
+
+  const system = personaInstruction
+    ? `${baseSystem}\n\nWriting tone: ${personaInstruction}`
+    : baseSystem;
 
   const replyContextPrompt = replyContext
     ? `Original email${replyContext.from ? ` from ${replyContext.from}` : ""}${replyContext.date ? ` (${replyContext.date})` : ""}:\n${replyContext.content}`

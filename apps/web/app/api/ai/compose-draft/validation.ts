@@ -11,6 +11,7 @@ export const composeDraftBody = z.object({
       date: z.string().optional(),
     })
     .optional(),
+  persona: z.string().optional(),
 });
 
 export type ComposeDraftBody = z.infer<typeof composeDraftBody>;

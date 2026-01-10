@@ -131,6 +131,7 @@ model EmailAccount {
   role                           String? // the role confirmed by the user - previously `User.surveyRole`
   timezone                       String? // User's timezone (IANA tz database format, e.g., "America/Los_Angeles", "Asia/Jerusalem") - handles DST automatically
   calendarBookingLink            String? // User's calendar booking link
+  defaultPersona                 String? // Default writing persona for AI drafts (e.g., "professional", "friendly", "formal")
 
   statsEmailFrequency       Frequency         @default(WEEKLY)
   summaryEmailFrequency     Frequency         @default(WEEKLY)
@@ -176,9 +177,76 @@ model EmailAccount {
   calendarConnections CalendarConnection[]
   mcpConnections      McpConnection[]
   meetingBriefings    MeetingBriefing[]
+  composeTemplates    ComposeTemplate[]
+  threadAnalyses      ThreadAnalysis[]
 
   @@index([userId])
   @@index([lastSummaryEmailAt])
+}
+
+model ComposeTemplate {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name     String
+  subject  String?
+  bodyHtml String?  @db.Text
+  to       String?
+  cc       String?
+  bcc      String?
+  persona  String? // Associated persona (e.g., "professional", "friendly")
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, name])
+  @@index([emailAccountId])
+}
+
+model ThreadAnalysis {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  threadId       String
+  messageCount   Int // Number of messages when analyzed (for staleness check)
+
+  // Summary
+  summary        String   @db.Text // One-line AI summary
+  keyTopics      String[] // Extracted topics/keywords
+
+  // Sentiment
+  sentiment      ThreadSentiment
+  sentimentScore Float? // -1 to 1 for granularity
+
+  // Next Action
+  nextAction     ThreadNextAction
+  nextActionNote String? // e.g., "Waiting for John's response"
+
+  // Participants
+  participantCount Int
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId, threadId])
+  @@index([emailAccountId])
+  @@index([threadId])
+}
+
+enum ThreadSentiment {
+  POSITIVE
+  NEUTRAL
+  NEGATIVE
+  MIXED
+}
+
+enum ThreadNextAction {
+  TO_REPLY     // User needs to reply
+  AWAITING     // Waiting for someone else's response
+  FYI          // Informational, no action needed
+  DONE         // Thread is resolved/completed
 }
 
 model Organization {

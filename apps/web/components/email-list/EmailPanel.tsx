@@ -4,6 +4,7 @@ import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
 import { Button } from "@/components/ui/button";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
+import { ThreadIntelligence } from "@/components/email-list/ThreadIntelligence";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { EmailThread } from "@/components/email-list/EmailThread";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -66,6 +67,9 @@ export function EmailPanel({
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
         {plan?.rule && <PlanExplanation thread={row} provider={provider} />}
+        <div className="px-4 py-3">
+          <ThreadIntelligence threadId={row.id} variant="expanded" />
+        </div>
         <EmailThread
           key={row.id}
           messages={row.messages}

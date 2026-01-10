@@ -44,6 +44,13 @@ import {
   ComposeToolbar,
   AutocompleteStatusBar,
 } from "@/components/compose/ComposeToolbar";
+import { useComposeTemplates } from "@/hooks/useComposeTemplates";
+import {
+  createTemplateAction,
+  deleteTemplateAction,
+  migrateLocalTemplatesAction,
+} from "@/utils/actions/compose-template";
+import { useAction } from "next-safe-action/hooks";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -70,25 +77,20 @@ const wrapTextInParagraphs = (value: string) => {
     .join("");
 };
 
-const MAX_TEMPLATES = 25;
-
 const composeTemplateSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  subject: z.string().optional(),
-  to: z.string().optional(),
-  cc: z.string().optional(),
-  bcc: z.string().optional(),
-  bodyHtml: z.string().optional(),
-  updatedAt: z.string().optional(),
+  subject: z.string().nullish(),
+  to: z.string().nullish(),
+  cc: z.string().nullish(),
+  bcc: z.string().nullish(),
+  bodyHtml: z.string().nullish(),
+  updatedAt: z.union([z.string(), z.date()]).nullish(),
 });
 
 const composeTemplateListSchema = z.array(composeTemplateSchema);
 
 type ComposeTemplate = z.infer<typeof composeTemplateSchema>;
-
-const buildTemplateId = () =>
-  `tmpl_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 export const ComposeEmailForm = ({
   replyingToEmail,
@@ -121,10 +123,32 @@ export const ComposeEmailForm = ({
   const senderNameRef = useRef<string | undefined>(undefined);
   const ghostHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showGhostHint, setShowGhostHint] = useState(false);
-  const [templates, setTemplates] = useState<ComposeTemplate[]>([]);
   const [templateName, setTemplateName] = useState("");
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
   const [isSubjectGenerating, setIsSubjectGenerating] = useState(false);
+  const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
+  const [hasMigratedTemplates, setHasMigratedTemplates] = useState(false);
+
+  const {
+    templates: serverTemplates,
+    defaultPersona,
+    mutate: mutateTemplates,
+  } = useComposeTemplates();
+
+  const { execute: executeCreateTemplate } = useAction(
+    createTemplateAction.bind(null, emailAccountId),
+    { onSuccess: () => mutateTemplates() },
+  );
+
+  const { execute: executeDeleteTemplate } = useAction(
+    deleteTemplateAction.bind(null, emailAccountId),
+    { onSuccess: () => mutateTemplates() },
+  );
+
+  const { execute: executeMigrate } = useAction(
+    migrateLocalTemplatesAction.bind(null, emailAccountId),
+    { onSuccess: () => mutateTemplates() },
+  );
 
   const {
     register,
@@ -185,21 +209,44 @@ export const ComposeEmailForm = ({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (hasMigratedTemplates) return;
+
     const raw = window.localStorage.getItem(templatesStorageKey);
     if (!raw) {
-      setTemplates([]);
+      setHasMigratedTemplates(true);
       return;
     }
 
     try {
       const parsed = JSON.parse(raw);
       const result = composeTemplateListSchema.safeParse(parsed);
-      setTemplates(result.success ? result.data : []);
+      if (result.success && result.data.length > 0) {
+        executeMigrate({
+          templates: result.data.map((t) => ({
+            name: t.name,
+            subject: t.subject ?? undefined,
+            bodyHtml: t.bodyHtml ?? undefined,
+            to: t.to ?? undefined,
+            cc: t.cc ?? undefined,
+            bcc: t.bcc ?? undefined,
+          })),
+        });
+        window.localStorage.removeItem(templatesStorageKey);
+      }
+      setHasMigratedTemplates(true);
     } catch (error) {
-      console.error("Failed to load templates", error);
-      setTemplates([]);
+      console.error("Failed to migrate templates", error);
+      setHasMigratedTemplates(true);
     }
-  }, [templatesStorageKey]);
+  }, [templatesStorageKey, hasMigratedTemplates, executeMigrate]);
+
+  useEffect(() => {
+    if (defaultPersona && !selectedPersona) {
+      setSelectedPersona(defaultPersona);
+    }
+  }, [defaultPersona, selectedPersona]);
+
+  const templates = serverTemplates;
 
   useEffect(() => {
     recipientNameRef.current = recipientName;
@@ -208,18 +255,6 @@ export const ComposeEmailForm = ({
   useEffect(() => {
     senderNameRef.current = senderName;
   }, [senderName]);
-
-  const persistTemplates = useCallback(
-    (nextTemplates: ComposeTemplate[]) => {
-      setTemplates(nextTemplates);
-      if (typeof window === "undefined") return;
-      window.localStorage.setItem(
-        templatesStorageKey,
-        JSON.stringify(nextTemplates),
-      );
-    },
-    [templatesStorageKey],
-  );
 
   const openSaveTemplateDialog = useCallback(() => {
     setTemplateName(subject?.trim() || "");
@@ -362,6 +397,7 @@ export const ComposeEmailForm = ({
           subject: subject?.trim() || undefined,
           existingContent: editorRef.current?.getMarkdown() || undefined,
           replyContext,
+          persona: selectedPersona || undefined,
         }),
         signal: controller.signal,
       });
@@ -395,7 +431,7 @@ export const ComposeEmailForm = ({
       clearTimeout(timeoutId);
       setIsAiDrafting(false);
     }
-  }, [aiPrompt, subject, emailAccountId, replyingToEmail]);
+  }, [aiPrompt, subject, emailAccountId, replyingToEmail, selectedPersona]);
 
   const handleAiContinue = useCallback(async () => {
     const existing = editorRef.current?.getMarkdown() || "";
@@ -527,45 +563,29 @@ export const ComposeEmailForm = ({
     }
 
     const values = getValues();
-    const now = new Date().toISOString();
     const bodyHtml = editorRef.current?.getHtml() ?? "";
-    const existingIndex = templates.findIndex(
-      (template) => template.name.toLowerCase() === trimmedName.toLowerCase(),
-    );
 
-    const nextTemplate: ComposeTemplate = {
-      id: existingIndex >= 0 ? templates[existingIndex].id : buildTemplateId(),
+    executeCreateTemplate({
       name: trimmedName,
-      subject: values.subject?.trim() || "",
-      to: values.to?.trim() || "",
-      cc: values.cc?.trim() || "",
-      bcc: values.bcc?.trim() || "",
-      bodyHtml,
-      updatedAt: now,
-    };
+      subject: values.subject?.trim() || undefined,
+      to: values.to?.trim() || undefined,
+      cc: values.cc?.trim() || undefined,
+      bcc: values.bcc?.trim() || undefined,
+      bodyHtml: bodyHtml || undefined,
+      persona: selectedPersona || undefined,
+    });
 
-    const nextTemplates = [
-      nextTemplate,
-      ...templates.filter((_, index) => index !== existingIndex),
-    ].slice(0, MAX_TEMPLATES);
-
-    persistTemplates(nextTemplates);
     setIsTemplateDialogOpen(false);
     setTemplateName("");
-    toastSuccess({
-      description: existingIndex >= 0 ? "Template updated." : "Template saved.",
-    });
-  }, [getValues, persistTemplates, templateName, templates]);
+    toastSuccess({ description: "Template saved." });
+  }, [getValues, templateName, executeCreateTemplate, selectedPersona]);
 
   const handleDeleteTemplate = useCallback(
     (templateId: string) => {
-      const nextTemplates = templates.filter(
-        (template) => template.id !== templateId,
-      );
-      persistTemplates(nextTemplates);
+      executeDeleteTemplate({ id: templateId });
       toastSuccess({ description: "Template deleted." });
     },
-    [persistTemplates, templates],
+    [executeDeleteTemplate],
   );
 
   useHotkeys(
@@ -903,6 +923,8 @@ export const ComposeEmailForm = ({
             templates={templates}
             isGenerating={isAiDrafting}
             isContinuing={isAiContinuing}
+            selectedPersona={selectedPersona}
+            onPersonaChange={setSelectedPersona}
           />
           <div className="h-5 w-px bg-border" />
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
