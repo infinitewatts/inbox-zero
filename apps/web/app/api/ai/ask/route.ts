@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ParsedMessage } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/types";
 
 type ReceiptSummary = {
   sender: string;
@@ -121,7 +122,7 @@ function summarizeMessages(messages: ParsedMessage[]): {
 async function fetchMessagesPaged(options: {
   query: string;
   limit: number;
-  emailProvider: any;
+  emailProvider: EmailProvider;
   attachmentsOnly?: boolean;
   maxPages?: number;
 }) {
@@ -156,7 +157,7 @@ async function fetchMessagesPaged(options: {
 async function handleReceipts(options: {
   query: string;
   limit: number;
-  emailProvider: any;
+  emailProvider: EmailProvider;
 }) {
   const { query, limit, emailProvider } = options;
   const searchQuery = query || defaultReceiptQuery();
@@ -183,7 +184,7 @@ async function handleReceipts(options: {
 async function handleSearch(options: {
   query: string;
   limit: number;
-  emailProvider: any;
+  emailProvider: EmailProvider;
 }) {
   const { query, limit, emailProvider } = options;
   const { filters, aboutTerms } = splitFiltersAndAbout(query);
