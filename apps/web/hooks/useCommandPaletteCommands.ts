@@ -16,6 +16,11 @@ import {
   BrushIcon,
   ZapIcon,
   MailsIcon,
+  SearchIcon,
+  ReceiptIcon,
+  PlaneIcon,
+  CheckCircleIcon,
+  MessageSquareIcon,
 } from "lucide-react";
 import type { Command } from "@/lib/commands/types";
 import { useRules } from "@/hooks/useRules";
@@ -224,14 +229,84 @@ export function useCommandPaletteCommands() {
       }));
   }, [user?.emailAccounts, router, emailAccountId]);
 
+  const askCommands = useMemo<Command[]>(
+    () => [
+      {
+        id: "ask-assistant",
+        label: "Ask Assistant",
+        description: "Chat with AI about your emails",
+        icon: MessageSquareIcon,
+        shortcut: "/",
+        section: "actions" as const,
+        priority: 1,
+        keywords: ["ask", "chat", "ai", "assistant", "help", "question"],
+        action: () => router.push(prefixPath(emailAccountId, "/automation")),
+      },
+      {
+        id: "ask-search",
+        label: "Search emails",
+        description: "Find specific emails",
+        icon: SearchIcon,
+        section: "actions" as const,
+        priority: 2,
+        keywords: ["search", "find", "lookup", "query"],
+        action: () => router.push(prefixPath(emailAccountId, "/mail")),
+      },
+      {
+        id: "ask-receipts",
+        label: "Find receipts",
+        description: "Search for invoices and receipts",
+        icon: ReceiptIcon,
+        section: "actions" as const,
+        priority: 3,
+        keywords: ["receipt", "invoice", "bill", "payment", "purchase"],
+        action: () =>
+          router.push(
+            prefixPath(emailAccountId, "/automation") +
+              "?chatId=new&q=find+my+receipts",
+          ),
+      },
+      {
+        id: "ask-travel",
+        label: "Find travel bookings",
+        description: "Search for flights, hotels, reservations",
+        icon: PlaneIcon,
+        section: "actions" as const,
+        priority: 4,
+        keywords: ["travel", "flight", "hotel", "booking", "reservation", "trip"],
+        action: () =>
+          router.push(
+            prefixPath(emailAccountId, "/automation") +
+              "?chatId=new&q=find+my+travel+bookings",
+          ),
+      },
+      {
+        id: "ask-approvals",
+        label: "Find pending approvals",
+        description: "Search for items needing approval",
+        icon: CheckCircleIcon,
+        section: "actions" as const,
+        priority: 5,
+        keywords: ["approval", "pending", "review", "sign", "authorize"],
+        action: () =>
+          router.push(
+            prefixPath(emailAccountId, "/automation") +
+              "?chatId=new&q=find+emails+needing+my+approval",
+          ),
+      },
+    ],
+    [router, emailAccountId],
+  );
+
   const allCommands = useMemo(
     () => [
+      ...askCommands,
       ...navigationCommands,
       ...settingsCommands,
       ...ruleCommands,
       ...accountCommands,
     ],
-    [navigationCommands, settingsCommands, ruleCommands, accountCommands],
+    [askCommands, navigationCommands, settingsCommands, ruleCommands, accountCommands],
   );
 
   return {

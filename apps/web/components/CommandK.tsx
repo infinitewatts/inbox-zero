@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { ArchiveIcon, Loader2Icon } from "lucide-react";
 import { useAtomValue } from "jotai";
 import {
@@ -21,6 +22,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useCommandPaletteCommands } from "@/hooks/useCommandPaletteCommands";
 import { fuzzySearch } from "@/lib/commands/fuzzy-search";
 import type { Command, CommandSection } from "@/lib/commands/types";
+import { prefixPath } from "@/utils/path";
 
 const SECTION_ORDER: CommandSection[] = [
   "actions",
@@ -41,6 +43,7 @@ const SECTION_LABELS: Record<CommandSection, string> = {
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const router = useRouter();
 
   const { emailAccountId } = useAccount();
   const { threadId, showEmail } = useDisplayedEmail();
@@ -177,6 +180,13 @@ export function CommandK() {
         onOpenComposeModal();
         return;
       }
+
+      // / for Ask assistant
+      if (e.key === "/" && !(e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        router.push(prefixPath(emailAccountId, "/automation"));
+        return;
+      }
     };
 
     document.addEventListener("keydown", down);
@@ -184,7 +194,7 @@ export function CommandK() {
     return () => {
       document.removeEventListener("keydown", down);
     };
-  }, [open, onArchive, onOpenComposeModal, threadId, showEmail]);
+  }, [open, onArchive, onOpenComposeModal, threadId, showEmail, router, emailAccountId]);
 
   return (
     <CommandDialog

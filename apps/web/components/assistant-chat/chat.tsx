@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { HistoryIcon, Loader2, PlusIcon } from "lucide-react";
+import { HistoryIcon, Loader2, PlusIcon, SparklesIcon } from "lucide-react";
 import { Messages } from "./messages";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,23 +62,35 @@ export function Chat({ open }: { open: boolean }) {
   }, []);
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-gradient-to-t from-blue-100 from-0% via-blue-100/30 via-10% to-transparent to-25% dark:bg-background">
-      <div className="flex items-center justify-between px-2 pt-2">
-        <div>
+    <div className="flex h-full min-w-0 flex-col bg-gradient-to-t from-blue-50/80 from-0% via-blue-50/20 via-15% to-transparent to-30% dark:from-blue-950/20 dark:via-blue-950/5 dark:to-transparent">
+      <div className="flex items-center justify-between border-b border-border/50 bg-background/80 px-3 py-2 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
           <SidebarTrigger name="chat-sidebar" />
-          {messages.length > MAX_MESSAGES ? (
-            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-              The chat is too long. Please start a new conversation.
-            </div>
-          ) : null}
+          <div className="flex items-center gap-1.5">
+            <SparklesIcon className="h-4 w-4 text-blue-500" />
+            <span className="text-sm font-medium">AI Assistant</span>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <NewChatButton />
           <ExamplesDialog setInput={setInput} />
           <ChatHistoryDropdown />
-          {/* <OpenArtifactButton /> */}
         </div>
       </div>
+
+      {messages.length > MAX_MESSAGES && (
+        <div className="mx-4 mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+          <span>Chat is getting long.</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 border-amber-300 bg-amber-100 text-xs hover:bg-amber-200 dark:border-amber-700 dark:bg-amber-900"
+            onClick={setNewChat}
+          >
+            Start new chat
+          </Button>
+        </div>
+      )}
 
       <Messages
         status={status}
@@ -90,22 +102,26 @@ export function Chat({ open }: { open: boolean }) {
       />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
-        {context ? (
-          <div className="mb-2 flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-              Fix: {context.message.headers.subject.slice(0, 60)}
-              {context.message.headers.subject.length > 60 ? "..." : ""}
+        {context && (
+          <div className="mb-2">
+            <div className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs dark:border-blue-800 dark:bg-blue-950/50">
+              <span className="font-medium text-blue-700 dark:text-blue-300">
+                Fixing:
+              </span>
+              <span className="max-w-[300px] truncate text-blue-600 dark:text-blue-400">
+                {context.message.headers.subject}
+              </span>
               <button
                 type="button"
                 aria-label="Remove context"
-                className="ml-1 rounded p-0.5 hover:bg-muted-foreground/10"
+                className="ml-1 rounded-full p-0.5 text-blue-500 hover:bg-blue-200 dark:hover:bg-blue-800"
                 onClick={() => setContext(null)}
               >
                 ×
               </button>
-            </span>
+            </div>
           </div>
-        ) : null}
+        )}
         <PromptInput
           onSubmit={(e) => {
             e.preventDefault();
@@ -118,7 +134,7 @@ export function Chat({ open }: { open: boolean }) {
         >
           <PromptInputTextarea
             value={input}
-            placeholder="Send a message..."
+            placeholder="Ask about your emails... (try 'find my receipts' or 'summarize unread')"
             onChange={(e) => setInput(e.currentTarget.value)}
             className="pr-12"
           />
@@ -141,6 +157,13 @@ export function Chat({ open }: { open: boolean }) {
             }}
           />
         </PromptInput>
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Press{" "}
+          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-800">
+            /
+          </kbd>{" "}
+          anywhere to open this assistant
+        </p>
       </div>
     </div>
   );
