@@ -1,103 +1,80 @@
 # Inbox Zero Enhancement Progress
 
-## Completed
+**Last Updated:** Jan 10, 2026
 
-### Batch 1: AI Core (Jan 9, 2026)
-| Commit | Change | Status |
-|--------|--------|--------|
-| 90fc66cd8 | compose-draft: error handling + logging | ✅ |
-| b5647d147 | Frontend: show actual error messages | ✅ |
-| 3bce95927 | AI Ask: 7 intents + retry + confidence scoring | ✅ |
-| a4842fda3 | Backup model for generateObject + config validation | ✅ |
+## Summary
 
-### UI Refresh (Jan 9, 2026)
-| Commit | Change | Status |
-|--------|--------|--------|
-| ae5b3b519 | Tighter email list + collapsible sidebar sections | ✅ |
-| dccadfad6 | Polish: beta banner amber styling + action bar | ✅ |
-| d01c846fc | Gmail-style floating compose window | ✅ |
-
-### Batch 2: Smart Replies + Autocomplete (Jan 9, 2026)
-| Commit | Change | Status |
-|--------|--------|--------|
-| de1c0bf76 | Smart replies + improved autocomplete UX | ✅ |
-
-### Batch 3: Command Palette + Ask UI (Jan 9, 2026)
-| Commit | Change | Status |
-|--------|--------|--------|
-| dfbbdd4c3 | Command palette + Ask UI improvements | ✅ |
+All batches completed through Batch 3. Total: **10 commits** across AI improvements, UI refresh, and UX enhancements.
 
 ---
 
-## UI Changes Summary
+## Completed Batches
 
-### Email List
-| Element | Before | After |
-|---------|--------|-------|
-| Row padding | py-3 (12px) | py-2 (8px) |
-| Border accent | 4px solid | 2px, colored on select |
-| Font size | 14px | 13px |
+### Batch 1: AI Core
+| Commit | Description |
+|--------|-------------|
+| `90fc66cd8` | compose-draft: error handling + logging |
+| `b5647d147` | Frontend: show actual error messages |
+| `3bce95927` | AI Ask: 7 intents + retry + confidence scoring |
+| `a4842fda3` | Backup model for generateObject + config validation |
 
-### Sidebar
-| Element | Before | After |
-|---------|--------|-------|
-| Categories | Always visible | Collapsible (closed default) |
-| Labels | Split visible/hidden | All collapsed with count |
+### UI Refresh
+| Commit | Description |
+|--------|-------------|
+| `ae5b3b519` | Tighter email list + collapsible sidebar sections |
+| `dccadfad6` | Beta banner amber styling + action bar |
+| `d01c846fc` | Gmail-style floating compose window |
 
-### Compose Modal
-| Feature | Description |
-|---------|-------------|
-| Position | Gmail-style floating bottom-right (500x520px) |
-| States | Normal, minimized (header only), maximized |
-| Header | Dark slate with min/max/close controls |
+### Batch 2: Smart Replies + Autocomplete
+| Commit | Description |
+|--------|-------------|
+| `de1c0bf76` | Smart replies + improved autocomplete UX |
+
+### Batch 3: Command Palette + Ask UI
+| Commit | Description |
+|--------|-------------|
+| `dfbbdd4c3` | Command palette Ask commands + Ask UI improvements |
+
+---
+
+## Key Features Added
+
+### Compose Modal (Gmail-style)
+- Floating bottom-right (500x520px)
+- Minimize/maximize/close controls
+- Dark header bar
 
 ### Smart Replies
-- Quick reply buttons appear when replying to an email
-- 3 AI-generated reply options (positive/neutral/decline tones)
-- One-click to insert into editor
-- Refresh button to regenerate
+- 3 AI-generated reply buttons (positive/neutral/decline)
+- Shows when replying to emails
+- Endpoint: `/api/ai/smart-replies`
 
-### Autocomplete Improvements
-- Blue accent styling for suggestion panel
-- Regenerate button to get different suggestions
-- Spinner loading state
-- Styled keyboard hint (`Tab` to accept)
+### Autocomplete UX
+- Blue accent panel
+- Regenerate button
+- Spinner + Tab hint
 
-### Command Palette (NEW)
-- **Ask Assistant** command with `/` shortcut
-- **Search emails** command
-- **Find receipts** - quick search for invoices
-- **Find travel bookings** - flights, hotels, reservations
-- **Find pending approvals** - items needing review
+### Command Palette
+- `/` shortcut opens AI Assistant
+- Commands: Ask Assistant, Search, Find receipts/travel/approvals
 
-### Ask UI (NEW)
-- New header with AI Assistant branding
+### Ask UI
+- Header with sparkles icon
 - Blue gradient background
-- Better "chat too long" warning with inline action
-- Improved context badge (blue theme)
-- Better placeholder with example queries
-- "/" shortcut hint below input
+- Better chat limit warning
+- "/" shortcut hint
 
 ---
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd+K` | Open command palette |
-| `/` | Open AI Assistant |
-| `C` | Compose new email |
-| `E` | Archive selected email |
-| `Esc` | Close email preview |
-| `Tab` | Accept AI autocomplete |
-
----
-
-## In Progress / Next Up
-
-### Batch 4: Performance
-- [ ] Email list virtualization for large inboxes
-- [ ] Lazy loading improvements
+| Key | Action |
+|-----|--------|
+| `Cmd+K` | Command palette |
+| `/` | AI Assistant |
+| `C` | Compose |
+| `E` | Archive |
+| `Tab` | Accept autocomplete |
 
 ---
 
@@ -105,20 +82,38 @@
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/api/ai/smart-replies` | Generate 3 contextual reply options |
-| `/api/ai/ghost-suggest` | AI-powered inline text completion (future use) |
+| `/api/ai/smart-replies` | 3 contextual reply options |
+| `/api/ai/ghost-suggest` | Inline completion (future) |
 
 ---
 
-## Testing Notes
+## Remaining: Batch 4 (Performance)
 
-After deploy, test:
-1. Click "Generate draft" in compose - should show real error messages now
-2. Try the collapsible sidebar sections
-3. Test compose window minimize/maximize/close
-4. Check email list density improvements
-5. Reply to an email and see Smart Reply buttons
-6. Write 40+ chars and see autocomplete with Regenerate button
-7. **NEW**: Press `/` to open AI Assistant
-8. **NEW**: Press `Cmd+K` and search for "receipts" or "travel"
-9. **NEW**: Check the improved Ask UI styling
+- [ ] Email list virtualization
+- [ ] Lazy loading improvements
+
+---
+
+## Files Modified
+
+**Compose:**
+- `providers/ComposeModalProvider.tsx` - Gmail-style modal
+- `compose/ComposeEmailForm.tsx` - Smart replies + autocomplete UX
+
+**UI:**
+- `components/email-list/EmailListItem.tsx` - Tighter rows
+- `components/email-list/EmailList.tsx` - Action bar styling
+- `components/SideNav.tsx` - Collapsible sections
+- `app/(app)/[emailAccountId]/mail/BetaBanner.tsx` - Amber styling
+
+**Command Palette:**
+- `components/CommandK.tsx` - "/" shortcut
+- `hooks/useCommandPaletteCommands.ts` - Ask commands
+
+**Ask UI:**
+- `components/assistant-chat/chat.tsx` - Improved styling
+
+**New Files:**
+- `app/api/ai/smart-replies/route.ts`
+- `app/api/ai/ghost-suggest/route.ts`
+- `components/compose/SmartReplies.tsx`
