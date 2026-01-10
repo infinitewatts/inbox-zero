@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
+import { getModel } from "@/utils/llms/model";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const smartRepliesBody = z.object({
@@ -10,22 +11,27 @@ const smartRepliesBody = z.object({
   senderName: z.string().optional(),
 });
 
-const smartRepliesResponse = z.object({
+const smartRepliesSchema = z.object({
   replies: z
     .array(
       z.object({
-        text: z.string(),
-        tone: z.enum(["positive", "neutral", "decline"]),
+        text: z.string().describe("The reply text, 1-2 sentences max"),
+        tone: z
+          .enum(["positive", "neutral", "decline"])
+          .describe("The tone of the reply"),
       }),
     )
-    .max(3),
+    .max(3)
+    .describe("Exactly 3 short reply options"),
 });
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
-  const user = await getEmailAccountWithAi({ emailAccountId });
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  if (!emailAccount) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
 
   const json = await request.json();
   const parsed = smartRepliesBody.safeParse(json);
@@ -57,14 +63,23 @@ Output exactly 3 replies with their tone.`;
     .filter((line) => line !== null)
     .join("\n");
 
+  const modelOptions = getModel(emailAccount.user);
+  const generateObject = createGenerateObject({
+    emailAccount: {
+      id: emailAccount.id,
+      userId: emailAccount.userId,
+      email: emailAccount.email,
+    },
+    label: "Smart replies",
+    modelOptions,
+  });
+
   try {
-    const result = await chatCompletionObject({
-      userAi: user.user,
-      prompt: userPrompt,
+    const result = await generateObject({
+      ...modelOptions,
       system,
-      schema: smartRepliesResponse,
-      userEmail: user.email,
-      usageLabel: "Smart replies",
+      prompt: userPrompt,
+      schema: smartRepliesSchema,
     });
 
     return NextResponse.json(result.object);
