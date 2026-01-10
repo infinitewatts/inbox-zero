@@ -179,8 +179,8 @@ export function createGenerateObject({
       try {
         const result = await generateObject(
           {
-            experimental_repairText: async ({ text }) => {
-              logger.info("Repairing text", { label });
+            experimental_repairText: async ({ text, error }) => {
+              logger.info("Repairing text", { label, error: error.message });
               const fixed = jsonrepair(text);
               return fixed;
             },
