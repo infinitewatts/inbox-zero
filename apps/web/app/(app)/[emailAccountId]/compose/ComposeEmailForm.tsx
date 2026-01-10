@@ -372,11 +372,12 @@ export const ComposeEmailForm = ({
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        throw new Error("Failed to generate draft");
+        throw new Error(data?.error || "Failed to generate draft");
       }
 
-      const data = await res.json();
       if (!data?.bodyHtml) {
         throw new Error("Draft response was empty");
       }
@@ -384,7 +385,9 @@ export const ComposeEmailForm = ({
       setAiDraft(data.bodyHtml);
     } catch (error) {
       console.error(error);
-      toastError({ description: "AI draft failed. Try again." });
+      const message =
+        error instanceof Error ? error.message : "AI draft failed";
+      toastError({ description: message });
     } finally {
       setIsAiDrafting(false);
     }
