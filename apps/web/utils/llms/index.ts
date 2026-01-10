@@ -177,18 +177,25 @@ export function createGenerateObject({
       }, DEFAULT_TIMEOUT_MS);
 
       try {
-        const result = await generateObject(
-          {
-            experimental_repairText: async ({ text, error }) => {
-              logger.info("Repairing text", { label, error: error.message });
-              const fixed = jsonrepair(text);
-              return fixed;
-            },
-            ...options,
-            ...commonOptions,
-            model,
-            abortSignal: options.abortSignal ?? controller.signal,
+        const generateOptions = {
+          ...options,
+          ...commonOptions,
+          model,
+          abortSignal: options.abortSignal ?? controller.signal,
+          experimental_repairText: async ({
+            text,
+            error,
+          }: {
+            text: string;
+            error: Error;
+          }): Promise<string | null> => {
+            logger.info("Repairing text", { label, error: error.message });
+            return jsonrepair(text);
           },
+        };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await (generateObject as any)(
+          generateOptions,
           ...restArgs,
         );
         clearTimeout(timeoutId);
