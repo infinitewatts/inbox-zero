@@ -5,6 +5,10 @@ import { composeDraftBody } from "@/app/api/ai/compose-draft/validation";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { SafeError } from "@/utils/error";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("compose-draft");
 
 const draftSchema = z.object({
   bodyHtml: z
@@ -64,12 +68,35 @@ Avoid placeholders unless required. Do not mention being an AI.`;
     modelOptions,
   });
 
-  const result = await generateObject({
-    ...modelOptions,
-    system,
-    prompt: userPrompt,
-    schema: draftSchema,
-  });
+  try {
+    const result = await generateObject({
+      ...modelOptions,
+      system,
+      prompt: userPrompt,
+      schema: draftSchema,
+    });
 
-  return NextResponse.json(result.object);
+    return NextResponse.json(result.object);
+  } catch (error) {
+    logger.error("Failed to generate draft", {
+      error,
+      emailAccountId,
+      prompt: prompt.slice(0, 100),
+    });
+
+    if (error instanceof SafeError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const message =
+      error instanceof Error ? error.message : "Failed to generate draft";
+
+    return NextResponse.json(
+      {
+        error: "Failed to generate draft. Please try again.",
+        details: message,
+      },
+      { status: 500 },
+    );
+  }
 });
