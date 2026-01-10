@@ -11,10 +11,31 @@ type ReceiptSummary = {
   dates: string[];
 };
 
-type AskIntent = "receipts" | "unknown";
+type AskIntent = "receipts" | "search" | "unknown";
+
+const FILTER_KEYS = ["from", "to", "subject", "label", "is", "before", "after", "has"];
+
+function splitFiltersAndAbout(query: string): { filters: string[]; aboutTerms: string[] } {
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const filters: string[] = [];
+  const about: string[] = [];
+
+  for (const tok of tokens) {
+    const m = tok.match(/^(from|to|subject|label|is|before|after|has):(.*)$/i);
+    if (m) {
+      filters.push(tok);
+    } else {
+      about.push(tok);
+    }
+  }
+  return { filters, aboutTerms: about };
+}
 
 function detectIntent(query: string): AskIntent {
   const q = query.toLowerCase();
+  const { aboutTerms, filters } = splitFiltersAndAbout(q);
+  const searchText = aboutTerms.join(" ");
+
   const receiptKeywords = [
     "receipt",
     "invoice",
@@ -24,13 +45,13 @@ function detectIntent(query: string): AskIntent {
     "expense",
     "purchase",
   ];
-  if (receiptKeywords.some((k) => q.includes(k))) return "receipts";
+  if (receiptKeywords.some((k) => searchText.includes(k))) return "receipts";
+
+  if (searchText || filters.length) return "search";
   return "unknown";
 }
 
 function defaultReceiptQuery() {
-  // Gmail: has:attachment + common receipt keywords
-  // Outlook: prefixes are stripped in the provider, so the keywords still apply
   return 'has:attachment (receipt OR invoice OR bill OR confirmation)';
 }
 
@@ -97,6 +118,41 @@ function summarizeMessages(messages: ParsedMessage[]): {
   };
 }
 
+async function fetchMessagesPaged(options: {
+  query: string;
+  limit: number;
+  emailProvider: any;
+  attachmentsOnly?: boolean;
+  maxPages?: number;
+}) {
+  const { query, limit, emailProvider, attachmentsOnly = false, maxPages = 5 } =
+    options;
+
+  const messages: ParsedMessage[] = [];
+  let pageToken: string | undefined = undefined;
+  let pages = 0;
+
+  while (messages.length < limit && pages < maxPages) {
+    const res = await emailProvider.getMessagesWithPagination({
+      query,
+      maxResults: 20,
+      pageToken,
+    });
+
+    for (const msg of res.messages) {
+      if (attachmentsOnly && (msg.attachments?.length || 0) === 0) continue;
+      messages.push(msg);
+      if (messages.length >= limit) break;
+    }
+
+    pageToken = res.nextPageToken;
+    pages += 1;
+    if (!pageToken) break;
+  }
+
+  return { messages, pages };
+}
+
 async function handleReceipts(options: {
   query: string;
   limit: number;
@@ -105,34 +161,52 @@ async function handleReceipts(options: {
   const { query, limit, emailProvider } = options;
   const searchQuery = query || defaultReceiptQuery();
 
-  const messages: ParsedMessage[] = [];
-  let pageToken: string | undefined = undefined;
-  let pages = 0;
-
-  while (messages.length < limit && pages < 5) {
-    const res = await emailProvider.getMessagesWithPagination({
-      query: searchQuery,
-      maxResults: 20,
-      pageToken,
-    });
-
-    for (const msg of res.messages) {
-      if ((msg.attachments?.length || 0) > 0) {
-        messages.push(msg);
-        if (messages.length >= limit) break;
-      }
-    }
-
-    pageToken = res.nextPageToken;
-    pages += 1;
-    if (!pageToken) break;
-  }
+  const { messages, pages } = await fetchMessagesPaged({
+    query: searchQuery,
+    limit,
+    emailProvider,
+    attachmentsOnly: true,
+  });
 
   const summary = summarizeMessages(messages);
 
   return {
     intent: "receipts" as const,
     queryUsed: searchQuery,
+    totalMessages: summary.total,
+    pagesScanned: pages,
+    groups: summary.groups,
+    samples: summary.samples,
+  };
+}
+
+async function handleSearch(options: {
+  query: string;
+  limit: number;
+  emailProvider: any;
+}) {
+  const { query, limit, emailProvider } = options;
+  const { filters, aboutTerms } = splitFiltersAndAbout(query);
+
+  // Build a combined query: filters + about terms (joined).
+  const filterPart = filters.join(" ");
+  const aboutPart = aboutTerms.join(" ");
+  const combined = [filterPart, aboutPart].filter(Boolean).join(" ").trim() || "in:anywhere";
+
+  const { messages, pages } = await fetchMessagesPaged({
+    query: combined,
+    limit,
+    emailProvider,
+    attachmentsOnly: false,
+  });
+
+  const summary = summarizeMessages(messages);
+
+  return {
+    intent: "search" as const,
+    queryUsed: combined,
+    filters,
+    aboutTerms,
     totalMessages: summary.total,
     pagesScanned: pages,
     groups: summary.groups,
@@ -161,11 +235,20 @@ export const GET = withEmailProvider("ai/ask", async (request) => {
     return NextResponse.json(result);
   }
 
+  if (intent === "search") {
+    const result = await handleSearch({
+      query: userQuery,
+      limit,
+      emailProvider,
+    });
+    return NextResponse.json(result);
+  }
+
   return NextResponse.json(
     {
       intent: "unknown",
       message:
-        "No intent matched yet. Try asking for receipts/invoices or provide more detail.",
+        "No intent matched. Try adding what to find (e.g., receipts, invoices, project docs) or filters like from:, to:, subject:, before:, after:, has:attachment.",
     },
     { status: 400 },
   );
