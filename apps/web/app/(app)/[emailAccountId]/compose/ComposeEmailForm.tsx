@@ -10,6 +10,7 @@ import {
 import {
   CheckCircleIcon,
   FileTextIcon,
+  RefreshCwIcon,
   SaveIcon,
   SparklesIcon,
   TrashIcon,
@@ -53,6 +54,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { Textarea } from "@/components/ui/textarea";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { htmlToText } from "@/utils/parse/parseHtml.client";
+import { SmartReplies } from "@/components/compose/SmartReplies";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -579,10 +581,48 @@ export const ComposeEmailForm = ({
     },
   );
 
+  const fetchAiSuggestion = useCallback(async () => {
+    const markdown = editorRef.current?.getMarkdown() ?? "";
+    const content = markdown.trim() || htmlToText(draftHtml || "").trim();
+    if (!content || content.length < 40) return;
+
+    aiSuggestionAbort.current?.abort();
+    const controller = new AbortController();
+    aiSuggestionAbort.current = controller;
+    setIsAiSuggesting(true);
+    setAiSuggestion(null);
+
+    try {
+      const prompt = [subject?.trim() ? `Subject: ${subject}` : "", content]
+        .filter(Boolean)
+        .join("\n\n");
+
+      const res = await fetch("/api/ai/compose-autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return;
+      const suggestion = (await res.text()).trim();
+      if (!controller.signal.aborted) {
+        setAiSuggestion(suggestion || null);
+      }
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") {
+        console.error(error);
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setIsAiSuggesting(false);
+      }
+    }
+  }, [draftHtml, subject]);
+
   useEffect(() => {
     const markdown = editorRef.current?.getMarkdown() ?? "";
-    const content =
-      markdown.trim() || htmlToText(draftHtml || "").trim();
+    const content = markdown.trim() || htmlToText(draftHtml || "").trim();
     if (!content || content.length < 40) {
       setAiSuggestion(null);
       return;
@@ -593,46 +633,14 @@ export const ComposeEmailForm = ({
       clearTimeout(aiSuggestionTimer.current);
     }
 
-    aiSuggestionTimer.current = setTimeout(async () => {
-      aiSuggestionAbort.current?.abort();
-      const controller = new AbortController();
-      aiSuggestionAbort.current = controller;
-      setIsAiSuggesting(true);
-
-      try {
-        const prompt = [subject?.trim() ? `Subject: ${subject}` : "", content]
-          .filter(Boolean)
-          .join("\n\n");
-
-        const res = await fetch("/api/ai/compose-autocomplete", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
-          signal: controller.signal,
-        });
-
-        if (!res.ok) return;
-        const suggestion = (await res.text()).trim();
-        if (!controller.signal.aborted) {
-          setAiSuggestion(suggestion || null);
-        }
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") {
-          console.error(error);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setIsAiSuggesting(false);
-        }
-      }
-    }, 800);
+    aiSuggestionTimer.current = setTimeout(fetchAiSuggestion, 800);
 
     return () => {
       if (aiSuggestionTimer.current) {
         clearTimeout(aiSuggestionTimer.current);
       }
     };
-  }, [aiDraft, draftHtml, isAiContinuing, isAiDrafting, subject]);
+  }, [aiDraft, draftHtml, isAiContinuing, isAiDrafting, fetchAiSuggestion]);
 
   useEffect(() => {
     ghostTextDisabledRef.current = Boolean(
@@ -874,6 +882,21 @@ export const ComposeEmailForm = ({
         </>
       )}
 
+      {replyingToEmail?.quotedContentHtml && (
+        <SmartReplies
+          emailAccountId={emailAccountId}
+          emailContent={htmlToText(replyingToEmail.quotedContentHtml)}
+          subject={replyingToEmail.subject}
+          senderName={extractNameFromEmail(replyingToEmail.to)}
+          onSelect={(text) => {
+            editorRef.current?.setContent(`<p>${text}</p>`);
+            setAiDraft(null);
+            setAiSuggestion(null);
+          }}
+          disabled={isAiDrafting || isAiContinuing}
+        />
+      )}
+
       <div className="rounded-md border border-dashed border-border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
@@ -1063,41 +1086,58 @@ export const ComposeEmailForm = ({
       )}
 
       {(aiSuggestion || isAiSuggesting) && (
-        <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+        <div className="rounded-md border border-blue-200 bg-blue-50/50 p-3 text-sm dark:border-blue-800 dark:bg-blue-950/30">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase text-muted-foreground">
-              AI suggestion
-            </span>
-            {aiSuggestion && (
+            <div className="flex items-center gap-1.5">
+              <SparklesIcon className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                {isAiSuggesting ? "Generating suggestion..." : "AI suggestion"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={fetchAiSuggestion}
+                disabled={isAiSuggesting}
+              >
+                <RefreshCwIcon className={`mr-1 h-3 w-3 ${isAiSuggesting ? "animate-spin" : ""}`} />
+                Regenerate
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
                 onClick={() => setAiSuggestion(null)}
               >
-                Dismiss
+                <XIcon className="h-3 w-3" />
               </Button>
-            )}
+            </div>
           </div>
           {aiSuggestion ? (
             <p className="mt-2 whitespace-pre-wrap text-foreground">
               {aiSuggestion}
             </p>
           ) : (
-            <p className="mt-2 text-muted-foreground">Thinking...</p>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600" />
+              <span className="text-muted-foreground">Thinking...</span>
+            </div>
           )}
           {aiSuggestion && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button
                 type="button"
                 size="sm"
-                variant="secondary"
                 onClick={applyAiSuggestion}
               >
                 Insert
               </Button>
               <span className="text-xs text-muted-foreground">
-                Press Tab to accept
+                or press <kbd className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-700">Tab</kbd> to accept
               </span>
             </div>
           )}
