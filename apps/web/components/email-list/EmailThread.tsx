@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailMessage } from "@/components/email-list/EmailMessage";
 
@@ -20,13 +20,13 @@ export function EmailThread({
   withHeader?: boolean;
 }) {
   // Place draft messages as replies to their parent message
+  // Sort by date to ensure most recent is last
   const organizedMessages = useMemo(() => {
     const drafts = new Map<string, ThreadMessage>();
     const regularMessages: ThreadMessage[] = [];
 
     messages?.forEach((message) => {
       if (message.labelIds?.includes("DRAFT")) {
-        // Get the parent message ID from the references or in-reply-to header
         const parentId =
           message.headers.references?.split(" ").pop() ||
           message.headers["in-reply-to"];
@@ -38,6 +38,13 @@ export function EmailThread({
       }
     });
 
+    // Sort by date ascending so most recent is last
+    regularMessages.sort((a, b) => {
+      const dateA = new Date(a.headers.date).getTime();
+      const dateB = new Date(b.headers.date).getTime();
+      return dateA - dateB;
+    });
+
     return regularMessages.map((message) => ({
       message,
       draftMessage: drafts.get(message.headers["message-id"] || ""),
@@ -45,10 +52,19 @@ export function EmailThread({
   }, [messages]);
 
   const lastMessageId = organizedMessages.at(-1)?.message.id;
+  const hasInitialized = useRef(false);
 
   const [expandedMessageIds, setExpandedMessageIds] = useState<Set<string>>(
-    new Set(lastMessageId ? [lastMessageId] : []),
+    new Set(),
   );
+
+  // Expand the most recent message when messages load
+  useEffect(() => {
+    if (lastMessageId && !hasInitialized.current) {
+      setExpandedMessageIds(new Set([lastMessageId]));
+      hasInitialized.current = true;
+    }
+  }, [lastMessageId]);
 
   return (
     <div className="flex-1 overflow-auto bg-muted p-4">

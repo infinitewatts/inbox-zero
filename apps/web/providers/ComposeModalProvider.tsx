@@ -3,9 +3,19 @@
 import { createContext, useContext, useState } from "react";
 import { useModal } from "@/hooks/useModal";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
-import { Button } from "@/components/ui/button";
-import { MinusIcon, XIcon, MaximizeIcon, MinimizeIcon } from "lucide-react";
+import {
+  Maximize2Icon,
+  Minimize2Icon,
+  ChevronDownIcon,
+  XIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { cn } from "@/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type Context = {
   onOpen: () => void;
@@ -16,6 +26,40 @@ const ComposeModalContext = createContext<Context>({
 });
 
 export const useComposeModal = () => useContext(ComposeModalContext);
+
+function HeaderButton({
+  onClick,
+  tooltip,
+  children,
+  variant = "default",
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  tooltip: string;
+  children: React.ReactNode;
+  variant?: "default" | "danger";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+            variant === "danger"
+              ? "text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground",
+          )}
+          onClick={onClick}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const { isModalOpen, openModal, closeModal } = useModal();
@@ -28,76 +72,95 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
     closeModal();
   };
 
+  const handleDiscard = () => {
+    handleClose();
+  };
+
   return (
     <ComposeModalContext.Provider value={{ onOpen: openModal }}>
       {props.children}
 
-      {/* Gmail-style floating compose window */}
       {isModalOpen && (
         <div
           className={cn(
-            "fixed z-50 flex flex-col overflow-hidden rounded-t-lg border border-border bg-background shadow-2xl transition-all duration-200",
+            "fixed z-50 flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl transition-all duration-200",
             isMaximized
-              ? "bottom-0 left-[10%] right-[10%] top-16 rounded-lg"
+              ? "bottom-4 left-[10%] right-[10%] top-16"
               : isMinimized
-                ? "bottom-0 right-4 h-10 w-72"
-                : "bottom-0 right-4 h-[520px] w-[500px]",
+                ? "bottom-0 right-4 h-11 w-80 rounded-b-none"
+                : "bottom-0 right-4 h-[560px] w-[640px] rounded-b-none",
           )}
         >
-          {/* Header bar */}
+          {/* Header */}
           <div
             className={cn(
-              "flex shrink-0 cursor-pointer items-center justify-between bg-slate-800 px-3 py-2 dark:bg-slate-900",
-              isMinimized && "rounded-t-lg",
+              "flex shrink-0 items-center justify-between border-b border-border px-2 py-1.5",
+              isMinimized && "cursor-pointer hover:bg-accent/50",
             )}
             onClick={() => isMinimized && setIsMinimized(false)}
           >
-            <span className="text-sm font-medium text-white">New Message</span>
+            {/* Left controls */}
             <div className="flex items-center gap-0.5">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-slate-300 hover:bg-slate-700 hover:text-white"
+              <HeaderButton
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsMinimized(!isMinimized);
+                  handleClose();
                 }}
+                tooltip="Close"
               >
-                <MinusIcon className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-slate-300 hover:bg-slate-700 hover:text-white"
+                <XIcon className="h-4 w-4" />
+              </HeaderButton>
+              <HeaderButton
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsMaximized(!isMaximized);
                   setIsMinimized(false);
                 }}
+                tooltip={isMaximized ? "Exit fullscreen" : "Fullscreen"}
               >
                 {isMaximized ? (
-                  <MinimizeIcon className="h-3.5 w-3.5" />
+                  <Minimize2Icon className="h-4 w-4" />
                 ) : (
-                  <MaximizeIcon className="h-3.5 w-3.5" />
+                  <Maximize2Icon className="h-4 w-4" />
                 )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-slate-300 hover:bg-red-600 hover:text-white"
+              </HeaderButton>
+              <HeaderButton
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleClose();
+                  setIsMinimized(!isMinimized);
                 }}
+                tooltip={isMinimized ? "Expand" : "Minimize"}
               >
-                <XIcon className="h-3.5 w-3.5" />
-              </Button>
+                <ChevronDownIcon
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    isMinimized && "rotate-180",
+                  )}
+                />
+              </HeaderButton>
+            </div>
+
+            {/* Title */}
+            <span className="text-sm font-medium">New Message</span>
+
+            {/* Right controls */}
+            <div className="flex items-center gap-0.5">
+              <HeaderButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDiscard();
+                }}
+                tooltip="Discard"
+                variant="danger"
+              >
+                <Trash2Icon className="h-4 w-4" />
+              </HeaderButton>
             </div>
           </div>
 
           {/* Content */}
           {!isMinimized && (
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex flex-1 flex-col overflow-hidden">
               <ComposeEmailFormLazy onSuccess={handleClose} />
             </div>
           )}

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
-import { getEmailAccountWithAi } from "@/utils/user/get";
+import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
 import { checkAiRateLimit, rateLimitResponse } from "@/utils/ratelimit";
 
 const smartRepliesBody = z.object({
@@ -47,6 +47,8 @@ export const POST = withEmailAccount(async (request) => {
 
   const { emailContent, subject, senderName } = parsed.data;
 
+  const writingStyle = await getWritingStyle({ emailAccountId });
+
   const system = `You generate 3 short, contextual email reply options.
 
 Rules:
@@ -59,6 +61,8 @@ Rules:
 Output exactly 3 replies with their tone.`;
 
   const userPrompt = [
+    user.about ? `About the user:\n${user.about}` : null,
+    writingStyle ? `Writing style:\n${writingStyle}` : null,
     subject ? `Subject: ${subject}` : null,
     senderName ? `From: ${senderName}` : null,
     "",

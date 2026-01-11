@@ -7,7 +7,7 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from "@headlessui/react";
-import { CheckCircleIcon, SparklesIcon, TrashIcon, XIcon } from "lucide-react";
+import { CheckCircleIcon, XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
@@ -33,17 +33,15 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
-import { CommandShortcut } from "@/components/ui/command";
-import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Textarea } from "@/components/ui/textarea";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { htmlToText } from "@/utils/parse/parseHtml.client";
 import { SmartReplies } from "@/components/compose/SmartReplies";
+import { AutocompleteStatusBar } from "@/components/compose/ComposeToolbar";
 import {
-  ComposeToolbar,
-  AutocompleteStatusBar,
-} from "@/components/compose/ComposeToolbar";
+  ComposeBottomToolbar,
+  type ComposeAttachment,
+} from "@/components/compose/ComposeBottomToolbar";
 import { useComposeTemplates } from "@/hooks/useComposeTemplates";
 import {
   createTemplateAction,
@@ -105,7 +103,6 @@ export const ComposeEmailForm = ({
 }) => {
   const { emailAccountId, userEmail } = useAccount();
   const [showFullContent, setShowFullContent] = useState(false);
-  const { symbol } = useModifierKey();
   const formRef = useRef<HTMLFormElement>(null);
   const [showCc, setShowCc] = useState(!!replyingToEmail?.cc);
   const [showBcc, setShowBcc] = useState(!!replyingToEmail?.bcc);
@@ -128,6 +125,8 @@ export const ComposeEmailForm = ({
   const [isSubjectGenerating, setIsSubjectGenerating] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [hasMigratedTemplates, setHasMigratedTemplates] = useState(false);
+  const [attachments, setAttachments] = useState<ComposeAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     templates: serverTemplates,
@@ -261,6 +260,29 @@ export const ComposeEmailForm = ({
     setIsTemplateDialogOpen(true);
   }, [subject]);
 
+  const handleAttachFiles = useCallback((files: FileList) => {
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64Content = result.split(",")[1] || "";
+        const newAttachment: ComposeAttachment = {
+          id: `${Date.now()}-${file.name}`,
+          filename: file.name,
+          content: base64Content,
+          contentType: file.type || "application/octet-stream",
+          size: file.size,
+        };
+        setAttachments((prev) => [...prev, newAttachment]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
   const onSubmit: SubmitHandler<SendEmailBody> = useCallback(
     async (data) => {
       const enrichedData = {
@@ -268,6 +290,11 @@ export const ComposeEmailForm = ({
         messageHtml: showFullContent
           ? data.messageHtml || ""
           : `${data.messageHtml || ""}<br>${replyingToEmail?.quotedContentHtml || ""}`,
+        attachments: attachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: a.contentType,
+        })),
       };
 
       try {
@@ -287,7 +314,7 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [refetch, onSuccess, showFullContent, replyingToEmail, emailAccountId],
+    [refetch, onSuccess, showFullContent, replyingToEmail, emailAccountId, attachments],
   );
 
   useHotkeys(
@@ -605,7 +632,7 @@ export const ComposeEmailForm = ({
   const fetchAiSuggestion = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown() ?? "";
     const content = markdown.trim() || htmlToText(draftHtml || "").trim();
-    if (!content || content.length < 40) return;
+    if (!content || content.length < 25) return;
 
     aiSuggestionAbort.current?.abort();
     const controller = new AbortController();
@@ -644,7 +671,7 @@ export const ComposeEmailForm = ({
   useEffect(() => {
     const markdown = editorRef.current?.getMarkdown() ?? "";
     const content = markdown.trim() || htmlToText(draftHtml || "").trim();
-    if (!content || content.length < 40) {
+    if (!content || content.length < 25) {
       setAiSuggestion(null);
       return;
     }
@@ -686,301 +713,270 @@ export const ComposeEmailForm = ({
   }, []);
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-2">
-      {replyingToEmail?.to && !editReply ? (
-        <button
-          type="button"
-          className="flex gap-1 text-left"
-          onClick={() => setEditReply(true)}
-        >
-          <span className="text-green-500">Draft</span>{" "}
-          <span className="max-w-md break-words text-foreground">
-            to {extractNameFromEmail(replyingToEmail.to)}
-          </span>
-        </button>
-      ) : (
-        <>
-          {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
-            <div className="flex space-x-2">
-              <div className="mt-2">
-                <Label name="to" label="To" />
-              </div>
-              <Combobox
-                value={selectedEmailAddressses}
-                onChange={handleComboboxOnChange}
-                multiple
-              >
-                <div className="flex min-h-10 w-full flex-1 flex-wrap items-center gap-1.5 rounded-md text-sm disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground">
-                  {selectedEmailAddressses.map((emailAddress) => (
-                    <Badge
-                      key={emailAddress}
-                      variant="secondary"
-                      className="cursor-pointer rounded-md"
-                      onClick={() => {
-                        onRemoveSelectedEmail(emailAddress);
-                        setSearchQuery(emailAddress);
-                      }}
-                    >
-                      {extractNameFromEmail(emailAddress)}
-
-                      <button
-                        type="button"
-                        onClick={() => onRemoveSelectedEmail(emailAddress)}
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex h-full flex-col"
+    >
+      {/* Fields Section */}
+      <div className="space-y-1 px-4 pt-3">
+        {replyingToEmail?.to && !editReply ? (
+          <button
+            type="button"
+            className="flex gap-1 text-left text-sm"
+            onClick={() => setEditReply(true)}
+          >
+            <span className="text-muted-foreground">To:</span>
+            <span className="text-foreground">
+              {extractNameFromEmail(replyingToEmail.to)}
+            </span>
+          </button>
+        ) : (
+          <>
+            {/* To Field */}
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <span className="w-12 shrink-0 text-sm text-muted-foreground">
+                To
+              </span>
+              {env.NEXT_PUBLIC_CONTACTS_ENABLED ? (
+                <Combobox
+                  value={selectedEmailAddressses}
+                  onChange={handleComboboxOnChange}
+                  multiple
+                >
+                  <div className="flex min-h-8 flex-1 flex-wrap items-center gap-1">
+                    {selectedEmailAddressses.map((emailAddress) => (
+                      <Badge
+                        key={emailAddress}
+                        variant="secondary"
+                        className="h-6 cursor-pointer gap-1 rounded-md px-2 text-xs"
+                        onClick={() => {
+                          onRemoveSelectedEmail(emailAddress);
+                          setSearchQuery(emailAddress);
+                        }}
                       >
-                        <XIcon className="ml-1.5 size-3" />
-                      </button>
-                    </Badge>
-                  ))}
-
-                  <div className="relative flex-1">
-                    <ComboboxInput
-                      value={searchQuery}
-                      className="w-full border-none bg-background p-0 text-sm focus:border-none focus:ring-0"
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      onKeyUp={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          setValue(
-                            "to",
-                            [...selectedEmailAddressses, searchQuery].join(","),
-                          );
-                          setSearchQuery("");
-                        }
-                      }}
-                    />
-
-                    {!!data?.result?.length && (
-                      <ComboboxOptions
-                        className={
-                          "absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm"
-                        }
-                      >
-                        <ComboboxOption
-                          className="h-0 w-0 overflow-hidden"
-                          value={searchQuery}
-                        />
-                        {data?.result.map((contact) => {
-                          const person = {
-                            emailAddress:
-                              contact.person?.emailAddresses?.[0].value,
-                            name: contact.person?.names?.[0].displayName,
-                            profilePictureUrl: contact.person?.photos?.[0].url,
-                          };
-
-                          return (
-                            <ComboboxOption
-                              className={({ focus }) =>
-                                `cursor-default select-none px-4 py-1 text-foreground ${
-                                  focus && "bg-accent"
-                                }`
-                              }
-                              key={person.emailAddress}
-                              value={person.emailAddress}
-                            >
-                              {({ selected }) => (
-                                <div className="my-2 flex items-center">
-                                  {selected ? (
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-full">
-                                      <CheckCircleIcon className="h-6 w-6" />
-                                    </div>
-                                  ) : (
-                                    <Avatar>
-                                      <AvatarImage
-                                        src={person.profilePictureUrl!}
-                                        alt={
-                                          person.emailAddress ||
-                                          "Profile picture"
-                                        }
-                                      />
-                                      <AvatarFallback>
-                                        {person.emailAddress?.[0] || "A"}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  )}
-                                  <div className="ml-4 flex flex-col justify-center">
-                                    <div className="text-foreground">
-                                      {person.name}
-                                    </div>
-                                    <div className="text-sm font-semibold text-muted-foreground">
-                                      {person.emailAddress}
+                        {extractNameFromEmail(emailAddress)}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRemoveSelectedEmail(emailAddress);
+                          }}
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <div className="relative flex-1">
+                      <ComboboxInput
+                        value={searchQuery}
+                        className="h-6 w-full border-none bg-transparent p-0 text-sm focus:border-none focus:ring-0"
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onKeyUp={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            setValue(
+                              "to",
+                              [...selectedEmailAddressses, searchQuery].join(
+                                ",",
+                              ),
+                            );
+                            setSearchQuery("");
+                          }
+                        }}
+                      />
+                      {!!data?.result?.length && (
+                        <ComboboxOptions className="absolute z-10 mt-1 max-h-60 overflow-auto rounded-md bg-popover py-1 text-base shadow-lg ring-1 ring-border focus:outline-none sm:text-sm">
+                          <ComboboxOption
+                            className="h-0 w-0 overflow-hidden"
+                            value={searchQuery}
+                          />
+                          {data?.result.map((contact) => {
+                            const person = {
+                              emailAddress:
+                                contact.person?.emailAddresses?.[0].value,
+                              name: contact.person?.names?.[0].displayName,
+                              profilePictureUrl:
+                                contact.person?.photos?.[0].url,
+                            };
+                            return (
+                              <ComboboxOption
+                                className={({ focus }) =>
+                                  `cursor-default select-none px-4 py-1 text-foreground ${focus && "bg-accent"}`
+                                }
+                                key={person.emailAddress}
+                                value={person.emailAddress}
+                              >
+                                {({ selected }) => (
+                                  <div className="my-2 flex items-center">
+                                    {selected ? (
+                                      <div className="flex h-10 w-10 items-center justify-center rounded-full">
+                                        <CheckCircleIcon className="h-5 w-5" />
+                                      </div>
+                                    ) : (
+                                      <Avatar className="h-10 w-10">
+                                        <AvatarImage
+                                          src={person.profilePictureUrl!}
+                                          alt={
+                                            person.emailAddress ||
+                                            "Profile picture"
+                                          }
+                                        />
+                                        <AvatarFallback>
+                                          {person.emailAddress?.[0] || "A"}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    )}
+                                    <div className="ml-3 flex flex-col justify-center">
+                                      <div className="text-sm text-foreground">
+                                        {person.name}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {person.emailAddress}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                            </ComboboxOption>
-                          );
-                        })}
-                      </ComboboxOptions>
-                    )}
+                                )}
+                              </ComboboxOption>
+                            );
+                          })}
+                        </ComboboxOptions>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </Combobox>
-            </div>
-          ) : (
-            <Input
-              type="text"
-              name="to"
-              label="To"
-              registerProps={register("to", { required: true })}
-              error={errors.to}
-            />
-          )}
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {!showCc && (
-              <button
-                type="button"
-                onClick={() => setShowCc(true)}
-                className="hover:text-foreground"
-              >
-                Add Cc
-              </button>
-            )}
-            {!showBcc && (
-              <button
-                type="button"
-                onClick={() => setShowBcc(true)}
-                className="hover:text-foreground"
-              >
-                Add Bcc
-              </button>
-            )}
-          </div>
-
-          {showCc && (
-            <Input
-              type="text"
-              name="cc"
-              label="Cc"
-              registerProps={register("cc")}
-              error={errors.cc}
-            />
-          )}
-
-          {showBcc && (
-            <Input
-              type="text"
-              name="bcc"
-              label="Bcc"
-              registerProps={register("bcc")}
-              error={errors.bcc}
-            />
-          )}
-
-          <Input
-            type="text"
-            name="subject"
-            registerProps={register("subject", { required: true })}
-            error={errors.subject}
-            placeholder="Subject"
-            labelComponent={
-              <div className="flex items-center justify-between gap-2">
-                <Label name="subject" label="Subject" />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSubjectGenerate}
-                  disabled={isSubjectGenerating}
-                >
-                  {isSubjectGenerating ? (
-                    <ButtonLoader />
-                  ) : (
-                    <SparklesIcon className="mr-2 h-4 w-4" />
-                  )}
-                  Generate
-                </Button>
+                </Combobox>
+              ) : (
+                <input
+                  type="text"
+                  className="h-6 flex-1 border-none bg-transparent p-0 text-sm focus:outline-none focus:ring-0"
+                  placeholder="recipient@example.com"
+                  {...register("to", { required: true })}
+                />
+              )}
+              <div className="flex items-center gap-1 text-xs">
+                {!showCc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCc(true)}
+                    className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    Cc
+                  </button>
+                )}
+                {!showBcc && (
+                  <button
+                    type="button"
+                    onClick={() => setShowBcc(true)}
+                    className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    Bcc
+                  </button>
+                )}
               </div>
-            }
-            className="border border-input bg-background focus:border-slate-200 focus:ring-0 focus:ring-slate-200"
-          />
-        </>
-      )}
+            </div>
 
+            {/* Cc Field */}
+            {showCc && (
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <span className="w-12 shrink-0 text-sm text-muted-foreground">
+                  Cc
+                </span>
+                <input
+                  type="text"
+                  className="h-6 flex-1 border-none bg-transparent p-0 text-sm focus:outline-none focus:ring-0"
+                  {...register("cc")}
+                />
+              </div>
+            )}
+
+            {/* Bcc Field */}
+            {showBcc && (
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <span className="w-12 shrink-0 text-sm text-muted-foreground">
+                  Bcc
+                </span>
+                <input
+                  type="text"
+                  className="h-6 flex-1 border-none bg-transparent p-0 text-sm focus:outline-none focus:ring-0"
+                  {...register("bcc")}
+                />
+              </div>
+            )}
+
+            {/* Subject Field */}
+            <div className="flex items-center gap-2 border-b border-border pb-2">
+              <input
+                type="text"
+                className="h-8 flex-1 border-none bg-transparent p-0 text-sm font-medium focus:outline-none focus:ring-0"
+                placeholder="Subject"
+                {...register("subject", { required: true })}
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Smart Replies */}
       {replyingToEmail?.quotedContentHtml && (
-        <SmartReplies
-          emailAccountId={emailAccountId}
-          emailContent={htmlToText(replyingToEmail.quotedContentHtml)}
-          subject={replyingToEmail.subject}
-          senderName={extractNameFromEmail(replyingToEmail.to)}
-          onSelect={(text) => {
-            editorRef.current?.setContent(`<p>${text}</p>`);
-            setAiDraft(null);
-            setAiSuggestion(null);
-          }}
-          disabled={isAiDrafting || isAiContinuing}
-        />
+        <div className="px-4 pt-2">
+          <SmartReplies
+            emailAccountId={emailAccountId}
+            emailContent={htmlToText(replyingToEmail.quotedContentHtml)}
+            subject={replyingToEmail.subject}
+            senderName={extractNameFromEmail(replyingToEmail.to)}
+            onSelect={(text) => {
+              editorRef.current?.setContent(`<p>${text}</p>`);
+              setAiDraft(null);
+              setAiSuggestion(null);
+            }}
+            disabled={isAiDrafting || isAiContinuing}
+          />
+        </div>
       )}
 
-      <div className="rounded-md border border-border bg-muted/30 p-3">
-        <div className="flex items-center gap-3">
-          <ComposeToolbar
-            onGenerateDraft={handleAiDraft}
-            onContinue={handleAiContinue}
-            onSaveTemplate={openSaveTemplateDialog}
-            onApplyTemplate={applyTemplate}
-            onDeleteTemplate={handleDeleteTemplate}
-            templates={templates}
-            isGenerating={isAiDrafting}
-            isContinuing={isAiContinuing}
-            selectedPersona={selectedPersona}
-            onPersonaChange={setSelectedPersona}
-          />
-          <div className="h-5 w-px bg-border" />
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <SparklesIcon className="h-3.5 w-3.5 text-amber-500" />
-            <span>AI</span>
-          </div>
-        </div>
-        <Textarea
-          value={aiPrompt}
-          onChange={(event) => setAiPrompt(event.target.value)}
-          placeholder="What do you want to say? (goal, tone, key points)"
-          className="mt-2 min-h-[60px] resize-none border-0 bg-transparent p-0 text-sm placeholder:text-muted-foreground/60 focus-visible:ring-0"
+      {/* Editor */}
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        <Tiptap
+          ref={editorRef}
+          initialContent={replyingToEmail?.draftHtml}
+          onChange={handleEditorChange}
+          className="min-h-[180px]"
+          ghostTextOptions={{
+            senderName: () => senderNameRef.current,
+            recipientName: () => recipientNameRef.current,
+            disabled: () => isAiDrafting || isAiContinuing || !!aiDraft,
+            aiSuggestion: () => aiSuggestion,
+            onAiSuggestionAccepted: () => setAiSuggestion(null),
+          }}
+          onMoreClick={
+            !replyingToEmail?.quotedContentHtml || showFullContent
+              ? undefined
+              : showExpandedContent
+          }
         />
-        {aiDraft && (
-          <div className="mt-2 rounded-md border border-border bg-background p-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                Preview
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => applyAiDraft("replace")}
-                >
-                  Replace
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs"
-                  onClick={() => applyAiDraft("append")}
-                >
-                  Append
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => setAiDraft(null)}
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <div className="mt-1.5 max-h-32 overflow-auto text-sm text-foreground">
-              {draftPreviewText || "Draft ready."}
-            </div>
+
+        {showGhostHint && (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Press{" "}
+            <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
+              Tab
+            </kbd>{" "}
+            to accept suggestions
+          </div>
+        )}
+
+        {(aiSuggestion || isAiSuggesting) && (
+          <div className="mt-2">
+            <AutocompleteStatusBar
+              isGenerating={isAiSuggesting}
+              onRegenerate={fetchAiSuggestion}
+              onDismiss={() => setAiSuggestion(null)}
+            />
           </div>
         )}
       </div>
 
+      {/* Template Dialog */}
       <Dialog
         open={isTemplateDialogOpen}
         onOpenChange={(open) => {
@@ -992,8 +988,7 @@ export const ComposeEmailForm = ({
           <DialogHeader>
             <DialogTitle>Save template</DialogTitle>
             <DialogDescription>
-              Save the current recipients, subject, and draft body for reuse in
-              this inbox.
+              Save the current recipients, subject, and draft body for reuse.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -1024,62 +1019,34 @@ export const ComposeEmailForm = ({
         </DialogContent>
       </Dialog>
 
-      <Tiptap
-        ref={editorRef}
-        initialContent={replyingToEmail?.draftHtml}
-        onChange={handleEditorChange}
-        className="min-h-[200px]"
-        ghostTextOptions={{
-          senderName: () => senderNameRef.current,
-          recipientName: () => recipientNameRef.current,
-          disabled: () => isAiDrafting || isAiContinuing || !!aiDraft,
-          aiSuggestion: () => aiSuggestion,
-          onAiSuggestionAccepted: () => setAiSuggestion(null),
-        }}
-        onMoreClick={
-          !replyingToEmail?.quotedContentHtml || showFullContent
-            ? undefined
-            : showExpandedContent
-        }
+      {/* Bottom Toolbar */}
+      <ComposeBottomToolbar
+        aiPrompt={aiPrompt}
+        onAiPromptChange={setAiPrompt}
+        onGenerateDraft={handleAiDraft}
+        onContinue={handleAiContinue}
+        onGenerateSubject={handleSubjectGenerate}
+        onSaveTemplate={openSaveTemplateDialog}
+        onApplyTemplate={applyTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
+        templates={templates}
+        isGenerating={isAiDrafting}
+        isContinuing={isAiContinuing}
+        isSubjectGenerating={isSubjectGenerating}
+        isSubmitting={isSubmitting}
+        selectedPersona={selectedPersona}
+        onPersonaChange={setSelectedPersona}
+        aiDraft={aiDraft}
+        aiDraftPreview={draftPreviewText}
+        onApplyDraft={applyAiDraft}
+        onDiscardDraft={() => setAiDraft(null)}
+        onDiscard={onDiscard}
+        isReplyMode={!!replyingToEmail}
+        attachments={attachments}
+        onAttachFiles={handleAttachFiles}
+        onRemoveAttachment={handleRemoveAttachment}
+        fileInputRef={fileInputRef}
       />
-      {showGhostHint && (
-        <div className="mt-2 text-xs text-muted-foreground">
-          Tip: press{" "}
-          <kbd className="rounded border bg-muted px-1 py-0.5 font-mono text-[10px]">
-            Tab
-          </kbd>{" "}
-          to accept inline suggestions
-        </div>
-      )}
-
-      {(aiSuggestion || isAiSuggesting) && (
-        <AutocompleteStatusBar
-          isGenerating={isAiSuggesting}
-          onRegenerate={fetchAiSuggestion}
-          onDismiss={() => setAiSuggestion(null)}
-        />
-      )}
-
-      <div className="flex items-center justify-between">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting && <ButtonLoader />}
-          Send
-          <CommandShortcut className="ml-2">{symbol}+Enter</CommandShortcut>
-        </Button>
-
-        {onDiscard && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            disabled={isSubmitting}
-            onClick={onDiscard}
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span className="sr-only">Discard</span>
-          </Button>
-        )}
-      </div>
     </form>
   );
 };
