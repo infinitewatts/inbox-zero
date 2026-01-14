@@ -8,6 +8,7 @@ import { ThreadIntelligence } from "@/components/email-list/ThreadIntelligence";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { EmailThread } from "@/components/email-list/EmailThread";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { MutedText } from "@/components/Typography";
 
 export function EmailPanel({
   row,
@@ -41,9 +42,9 @@ export function EmailPanel({
           >
             {lastMessage.headers.subject}
           </h1>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
+          <MutedText className="mt-1 truncate">
             {lastMessage.headers.from}
-          </p>
+          </MutedText>
         </div>
 
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">

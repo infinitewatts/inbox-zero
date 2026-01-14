@@ -16,6 +16,7 @@ import {
   ChevronRightIcon,
   FileIcon,
   FileTextIcon,
+  HardDriveIcon,
   InboxIcon,
   type LucideIcon,
   MailOpenIcon,
@@ -53,6 +54,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import {
+  useSmartFilingEnabled,
   useCleanerEnabled,
   useIntegrationsEnabled,
   useMeetingBriefsEnabled,
@@ -79,6 +81,7 @@ type NavItem = {
 };
 
 export const useNavigation = () => {
+  const showSmartFiling = useSmartFilingEnabled();
   const showCleaner = useCleanerEnabled();
   const showMeetingBriefs = useMeetingBriefsEnabled();
   const showIntegrations = useIntegrationsEnabled();
@@ -143,18 +146,33 @@ export const useNavigation = () => {
             },
           ]
         : []),
+      ...(showSmartFiling
+        ? [
+            {
+              name: "Smart Filing",
+              href: prefixPath(currentEmailAccountId, "/drive"),
+              icon: HardDriveIcon,
+              beta: true,
+            },
+          ]
+        : []),
       ...(showMeetingBriefs
         ? [
             {
               name: "Meeting Briefs",
               href: prefixPath(currentEmailAccountId, "/briefs"),
               icon: FileTextIcon,
-              new: true,
             },
           ]
         : []),
     ],
-    [currentEmailAccountId, provider, showMeetingBriefs, showIntegrations],
+    [
+      currentEmailAccountId,
+      provider,
+      showSmartFiling,
+      showMeetingBriefs,
+      showIntegrations,
+    ],
   );
 
   const navItemsFiltered = useMemo(

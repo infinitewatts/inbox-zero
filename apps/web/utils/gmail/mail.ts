@@ -5,6 +5,7 @@ import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
 import { convertEmailHtmlToText } from "@/utils/mail";
+import { escapeHtml } from "@/utils/string";
 import {
   forwardEmailHtml,
   forwardEmailSubject,
@@ -21,6 +22,7 @@ import {
   mergeAndDedupeRecipients,
 } from "@/utils/email/reply-all";
 import { formatReplySubject } from "@/utils/email/subject";
+import { buildThreadingHeaders } from "@/utils/email/threading";
 import { ensureEmailSendingEnabled } from "@/utils/mail";
 import { addTrackingToEmail, parseRecipients } from "@inboxzero/email-tracking";
 
@@ -32,6 +34,7 @@ export const sendEmailBody = z.object({
       threadId: z.string(),
       headerMessageId: z.string(), // this is different to the gmail message id and looks something like <123...abc@mail.example.com>
       references: z.string().optional(), // for threading
+      messageId: z.string().optional(), // platform-specific message ID (Graph ID for Outlook)
     })
     .optional(),
   to: z.string(),
@@ -102,10 +105,10 @@ const createRawMailMessage = async (
     ],
     attachments,
     // https://datatracker.ietf.org/doc/html/rfc2822#appendix-A.2
-    references: replyToEmail
-      ? `${replyToEmail.references || ""} ${replyToEmail.headerMessageId}`.trim()
-      : "",
-    inReplyTo: replyToEmail ? replyToEmail.headerMessageId : "",
+    ...buildThreadingHeaders({
+      headerMessageId: replyToEmail?.headerMessageId || "",
+      references: replyToEmail?.references,
+    }),
     headers,
   });
 };
@@ -133,7 +136,12 @@ export async function sendEmailWithHtml(
   } catch (error) {
     logger.error("Error converting email html to text", { error });
     // Strip HTML tags as a fallback
-    messageText = body.messageHtml.replace(/<[^>]*>/g, "");
+    // Keep new lines
+    messageText = body.messageHtml
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]*>/g, "")
+      .trim();
   }
 
   const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText, trackingId: emailId });
@@ -346,17 +354,17 @@ async function createDraft(
   return result;
 }
 
-function convertTextToHtmlParagraphs(text?: string | null): string {
+export function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 
-  // Split the text into paragraphs based on newline characters
-  const paragraphs = text
-    .split("\n")
-    .filter((paragraph) => paragraph.trim() !== "");
+  const normalizedText = text.replace(/\r\n/g, "\n");
+  const lines = normalizedText.split("\n");
 
-  // Wrap each paragraph with <p> tags and join them back together
-  const htmlContent = paragraphs
-    .map((paragraph) => `<p>${paragraph.trim()}</p>`)
+  const htmlContent = lines
+    .map((line) => {
+      const trimmed = line.trim();
+      return trimmed === "" ? "<br>" : `<p>${escapeHtml(trimmed)}</p>`;
+    })
     .join("");
 
   return `<html><body>${htmlContent}</body></html>`;

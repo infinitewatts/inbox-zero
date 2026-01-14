@@ -83,3 +83,5 @@ deploy/docker-compose.nas.yml
 logs
 
 coverage
+
+/apps/web/app/(app)/\[emailAccountId\]/demo/*

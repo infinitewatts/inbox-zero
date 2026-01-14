@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { PageHeading } from "@/components/Typography";
+import { MutedText, PageHeading } from "@/components/Typography";
 import {
   Card,
   CardContent,

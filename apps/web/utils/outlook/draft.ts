@@ -1,7 +1,11 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Logger } from "@/utils/logger";
-import { convertMessage } from "@/utils/outlook/message";
+import { isNotFoundError } from "@/utils/outlook/errors";
+import {
+  convertMessage,
+  getCategoryMap,
+  getFolderIds,
+} from "@/utils/outlook/message";
 import { withOutlookRetry } from "@/utils/outlook/retry";
 
 export async function getDraft({
@@ -14,11 +18,15 @@ export async function getDraft({
   logger: Logger;
 }) {
   try {
-    const response: Message = await withOutlookRetry(
-      () => client.getClient().api(`/me/messages/${draftId}`).get(),
-      logger,
-    );
-    const message = convertMessage(response);
+    const [response, folderIds, categoryMap] = await Promise.all([
+      withOutlookRetry(
+        () => client.getClient().api(`/me/messages/${draftId}`).get(),
+        logger,
+      ),
+      getFolderIds(client, logger),
+      getCategoryMap(client, logger),
+    ]);
+    const message = convertMessage(response, folderIds, categoryMap);
     return message;
   } catch (error) {
     if (isNotFoundError(error)) {
@@ -57,31 +65,4 @@ export async function deleteDraft({
     logger.error("Failed to delete draft", { draftId, error });
     throw error;
   }
-}
-
-function isNotFoundError(error: unknown): boolean {
-  const err = error as {
-    statusCode?: number;
-    code?: number | string;
-    message?: string;
-  };
-
-  // Check error code
-  if (
-    err?.statusCode === 404 ||
-    err?.code === 404 ||
-    err?.code === "ErrorItemNotFound" ||
-    err?.code === "itemNotFound"
-  ) {
-    return true;
-  }
-
-  if (
-    err?.message?.includes("not found in the store") ||
-    err?.message?.includes("ErrorItemNotFound")
-  ) {
-    return true;
-  }
-
-  return false;
 }
