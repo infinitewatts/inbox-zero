@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { tool } from "ai";
 import { withEmailProvider } from "@/utils/middleware";
 import type { ParsedMessage } from "@/utils/types";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { chatCompletionStream } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
+import {
+  createSearchEmailsTool,
+  extractSenderName,
+} from "@/utils/ai/tools/search-emails";
 
 const logger = createScopedLogger("ai-search");
 
@@ -41,51 +43,18 @@ export const GET = withEmailProvider("ai/search", async (request) => {
   const searchResults: ParsedMessage[] = [];
   const queriesUsed: string[] = [];
 
-  // Create search tool that the AI can use
-  const searchEmailsTool = tool({
-    name: "searchEmails",
-    description:
-      "Search emails using Gmail query syntax. Call this multiple times with different queries to find what you're looking for.",
-    inputSchema: z.object({
-      query: z
-        .string()
-        .describe(
-          "Gmail search query (e.g., 'from:john agreement', '\"exact phrase\"', 'subject:invoice')",
-        ),
-    }),
-    execute: async ({ query }: { query: string }) => {
-      logger.info("AI searching emails", { query });
+  // Create search tool with callback to collect results
+  const searchEmailsTool = createSearchEmailsTool({
+    emailProvider,
+    logger,
+    onResults: (messages, query) => {
       queriesUsed.push(query);
-
-      try {
-        const res = await emailProvider.getMessagesWithPagination({
-          query,
-          maxResults: Math.min(limit, 20),
-        });
-
-        // Add to results, avoiding duplicates
-        const existingIds = new Set(searchResults.map((m) => m.id));
-        for (const msg of res.messages) {
-          if (!existingIds.has(msg.id)) {
-            searchResults.push(msg);
-            existingIds.add(msg.id);
-          }
+      // Add to results, avoiding duplicates
+      const existingIds = new Set(searchResults.map((m) => m.id));
+      for (const msg of messages) {
+        if (!existingIds.has(msg.id)) {
+          searchResults.push(msg);
         }
-
-        // Return summary to AI
-        return {
-          found: res.messages.length,
-          totalSoFar: searchResults.length,
-          samples: res.messages.slice(0, 5).map((m) => ({
-            subject: m.subject,
-            from: m.headers.from,
-            date: m.date,
-            snippet: m.snippet?.slice(0, 100),
-          })),
-        };
-      } catch (error) {
-        logger.error("Search failed", { error, query });
-        return { error: "Search failed", found: 0 };
       }
     },
   });
@@ -138,7 +107,7 @@ Keep searching until you find relevant results or have tried several variations.
       aiExplanation += chunk;
     }
 
-    // Group results by sender
+    // Group results by sender using shared helper
     const groupsMap = new Map<
       string,
       {
@@ -150,10 +119,7 @@ Keep searching until you find relevant results or have tried several variations.
     >();
 
     for (const m of searchResults.slice(0, limit)) {
-      const from = m.headers.from;
-      const sender = from.match(/^(.*?)\s*</)
-        ? from.match(/^(.*?)\s*</)?.[1]?.trim() || from
-        : from.split("@")[0] || from;
+      const sender = extractSenderName(m.headers.from);
 
       if (!groupsMap.has(sender)) {
         groupsMap.set(sender, {

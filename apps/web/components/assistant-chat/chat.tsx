@@ -90,14 +90,7 @@ export function Chat({ open }: { open: boolean }) {
         </div>
       )}
 
-      <Messages
-        status={status}
-        messages={messages}
-        setMessages={setMessages}
-        setInput={setInput}
-        regenerate={regenerate}
-        isArtifactVisible={false}
-      />
+      <Messages status={status} messages={messages} setInput={setInput} />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
         {context && (

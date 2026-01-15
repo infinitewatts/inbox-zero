@@ -15,9 +15,6 @@ import { useStickToBottomContext } from "use-stick-to-bottom";
 interface MessagesProps {
   status: UseChatHelpers<ChatMessage>["status"];
   messages: Array<ChatMessage>;
-  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
-  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
-  isArtifactVisible: boolean;
   setInput: (input: string) => void;
 }
 

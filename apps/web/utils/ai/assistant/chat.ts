@@ -26,6 +26,11 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
+import {
+  createSearchEmailsTool,
+  createGetThreadSummaryTool,
+  formatError,
+} from "@/utils/ai/tools/search-emails";
 
 export const maxDuration = 120;
 
@@ -672,114 +677,12 @@ export type AddToKnowledgeBaseTool = InferUITool<
   ReturnType<typeof addToKnowledgeBaseTool>
 >;
 
-// Search tools
-const searchEmailsTool = ({
-  emailProvider,
-  logger,
-}: {
-  emailProvider: EmailProvider;
-  logger: Logger;
-}) =>
-  tool({
-    name: "searchEmails",
-    description:
-      "Search the user's emails using Gmail query syntax. Use this to find specific emails. Returns thread IDs and summaries.",
-    inputSchema: z.object({
-      query: z
-        .string()
-        .describe(
-          "Gmail search query (e.g., 'from:john', '\"exact phrase\"', 'subject:invoice', 'has:attachment')",
-        ),
-      maxResults: z
-        .number()
-        .optional()
-        .default(10)
-        .describe("Maximum number of results to return"),
-    }),
-    execute: async ({
-      query,
-      maxResults = 10,
-    }: {
-      query: string;
-      maxResults?: number;
-    }) => {
-      logger.info("AI searching emails", { query, maxResults });
-
-      try {
-        const res = await emailProvider.getMessagesWithPagination({
-          query,
-          maxResults: Math.min(maxResults, 20),
-        });
-
-        const results = res.messages.slice(0, maxResults).map((m) => ({
-          threadId: m.threadId,
-          subject: m.subject,
-          from: m.headers.from,
-          date: m.date,
-          snippet: m.snippet?.slice(0, 150),
-        }));
-
-        return {
-          found: results.length,
-          results,
-          hasMore: !!res.nextPageToken,
-        };
-      } catch (error) {
-        logger.error("Search failed", { error, query });
-        return { error: "Search failed", found: 0 };
-      }
-    },
-  });
-
-export type SearchEmailsTool = InferUITool<ReturnType<typeof searchEmailsTool>>;
-
-const getThreadSummaryTool = ({
-  emailProvider,
-  logger,
-}: {
-  emailProvider: EmailProvider;
-  logger: Logger;
-}) =>
-  tool({
-    name: "getThreadSummary",
-    description:
-      "Get detailed information about a specific email thread by its ID.",
-    inputSchema: z.object({
-      threadId: z.string().describe("The thread ID to fetch"),
-    }),
-    execute: async ({ threadId }: { threadId: string }) => {
-      logger.info("AI fetching thread", { threadId });
-
-      try {
-        const thread = await emailProvider.getThread(threadId);
-        if (!thread || thread.messages.length === 0) {
-          return { error: "Thread not found" };
-        }
-
-        const messages = thread.messages.map((m) => ({
-          from: m.headers.from,
-          to: m.headers.to,
-          date: m.date,
-          subject: m.subject,
-          snippet: m.snippet?.slice(0, 300),
-        }));
-
-        return {
-          threadId,
-          messageCount: messages.length,
-          subject: messages[0]?.subject,
-          participants: [...new Set(messages.map((m) => m.from))],
-          messages,
-        };
-      } catch (error) {
-        logger.error("Failed to fetch thread", { error, threadId });
-        return { error: "Failed to fetch thread" };
-      }
-    },
-  });
-
+// Search tools - using shared implementations from @/utils/ai/tools/search-emails
+export type SearchEmailsTool = InferUITool<
+  ReturnType<typeof createSearchEmailsTool>
+>;
 export type GetThreadSummaryTool = InferUITool<
-  ReturnType<typeof getThreadSummaryTool>
+  ReturnType<typeof createGetThreadSummaryTool>
 >;
 
 const composeEmailTool = ({
@@ -851,10 +754,6 @@ const composeEmailTool = ({
   });
 
 export type ComposeEmailTool = InferUITool<ReturnType<typeof composeEmailTool>>;
-
-// Helper to format errors consistently
-const formatError = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 // Email Action Tools
 const archiveThreadTool = ({
@@ -1423,8 +1322,11 @@ The user's email address is: ${user.email}
       ...(emailProvider
         ? {
             // Search tools
-            searchEmails: searchEmailsTool({ emailProvider, logger }),
-            getThreadSummary: getThreadSummaryTool({ emailProvider, logger }),
+            searchEmails: createSearchEmailsTool({ emailProvider, logger }),
+            getThreadSummary: createGetThreadSummaryTool({
+              emailProvider,
+              logger,
+            }),
             // Action tools
             archiveThread: archiveThreadTool({ emailProvider, user, logger }),
             trashThread: trashThreadTool({ emailProvider, user, logger }),
