@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { prefixPath } from "@/utils/path";
 import { formatShortDate } from "@/utils/date";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 type MessageSummary = {
   sender: string;
@@ -24,12 +25,10 @@ type MessageSummary = {
 };
 
 type SearchResult = {
-  intent: string;
-  confidence: string;
-  description: string;
   query: {
     original: string;
-    executed: string;
+    interpreted: string;
+    explanation: string;
   };
   results: {
     total: number;
@@ -43,7 +42,6 @@ type SearchResult = {
       snippet?: string;
     }>;
   };
-  suggestions?: string[];
 };
 
 export default function SearchPage() {
@@ -64,7 +62,12 @@ export default function SearchPage() {
 
       try {
         const response = await fetch(
-          `/api/ai/ask?q=${encodeURIComponent(query)}&limit=60`,
+          `/api/ai/search?q=${encodeURIComponent(query)}&limit=30`,
+          {
+            headers: {
+              [EMAIL_ACCOUNT_HEADER]: params.emailAccountId,
+            },
+          },
         );
         if (!response.ok) {
           const data = await response.json();
@@ -80,7 +83,7 @@ export default function SearchPage() {
         setLoading(false);
       }
     },
-    [query],
+    [query, params.emailAccountId],
   );
 
   const openThread = useCallback(
@@ -129,21 +132,32 @@ export default function SearchPage() {
 
       {result && (
         <div className="space-y-4">
+          <Card className="bg-muted/30">
+            <CardContent className="py-3">
+              <p className="text-sm">
+                <span className="font-medium">AI interpretation:</span>{" "}
+                {result.query.explanation}
+              </p>
+              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                Query: {result.query.interpreted}
+              </p>
+            </CardContent>
+          </Card>
+
           <div className="flex items-center gap-2">
-            <Badge variant="secondary">{result.intent}</Badge>
             <span className="text-sm text-muted-foreground">
               {result.results.total} emails found
             </span>
           </div>
 
-          {result.results.total === 0 && result.suggestions && (
+          {result.results.total === 0 && (
             <Card>
               <CardContent className="py-4">
                 <p className="mb-2 font-medium">No results found. Try:</p>
                 <ul className="list-inside list-disc text-sm text-muted-foreground">
-                  {result.suggestions.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
+                  <li>Different keywords or names</li>
+                  <li>Broader search terms</li>
+                  <li>Check spelling of names</li>
                 </ul>
               </CardContent>
             </Card>

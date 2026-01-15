@@ -25,6 +25,7 @@ import {
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
+  MessageCircleIcon,
   SearchIcon,
   SendIcon,
   SettingsIcon,
@@ -217,7 +218,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
     [showMailNav],
   );
 
-  const { state } = useSidebar();
+  const { state, toggleSidebar } = useSidebar();
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -260,6 +261,14 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <ReferralDialog />
           </ClientOnly>
         )}
+
+        <SidebarMenuButton
+          onClick={() => toggleSidebar(["chat-sidebar"])}
+          className="text-primary hover:text-primary"
+        >
+          <MessageCircleIcon className="size-4" />
+          <span className="font-semibold">AI Chat</span>
+        </SidebarMenuButton>
 
         <SidebarMenuButton asChild>
           <Link href="https://docs.getinboxzero.com" target="_blank">

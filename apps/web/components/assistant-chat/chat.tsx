@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
-import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -73,7 +72,6 @@ export function Chat({ open }: { open: boolean }) {
         </div>
         <div className="flex items-center gap-1">
           <NewChatButton />
-          <ExamplesDialog setInput={setInput} />
           <ChatHistoryDropdown />
         </div>
       </div>
@@ -134,7 +132,7 @@ export function Chat({ open }: { open: boolean }) {
         >
           <PromptInputTextarea
             value={input}
-            placeholder="Ask about your emails... (try 'find my receipts' or 'summarize unread')"
+            placeholder="Message..."
             onChange={(e) => setInput(e.currentTarget.value)}
             className="pr-12"
           />
@@ -157,13 +155,6 @@ export function Chat({ open }: { open: boolean }) {
             }}
           />
         </PromptInput>
-        <p className="mt-2 text-center text-xs text-muted-foreground">
-          Press{" "}
-          <kbd className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] dark:bg-slate-800">
-            /
-          </kbd>{" "}
-          anywhere to open this assistant
-        </p>
       </div>
     </div>
   );

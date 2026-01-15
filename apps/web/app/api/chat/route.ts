@@ -1,6 +1,6 @@
 import { convertToModelMessages, type UIMessage } from "ai";
 import { z } from "zod";
-import { withEmailAccount } from "@/utils/middleware";
+import { withEmailProvider } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
@@ -28,7 +28,8 @@ const assistantInputSchema = z.object({
   context: messageContextSchema.optional(),
 });
 
-export const POST = withEmailAccount("chat", async (request) => {
+export const POST = withEmailProvider("chat", async (request) => {
+  const { emailProvider } = request;
   const emailAccountId = request.auth.emailAccountId;
 
   const user = await getEmailAccountWithAi({ emailAccountId });
@@ -77,6 +78,7 @@ export const POST = withEmailAccount("chat", async (request) => {
       messages: convertToModelMessages(uiMessages),
       emailAccountId,
       user,
+      emailProvider,
       context,
       logger: request.logger,
     });

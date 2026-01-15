@@ -25,6 +25,7 @@ import type { MessageContext } from "@/app/api/chat/validation";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import type { ParsedMessage } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/types";
 
 export const maxDuration = 120;
 
@@ -671,23 +672,364 @@ export type AddToKnowledgeBaseTool = InferUITool<
   ReturnType<typeof addToKnowledgeBaseTool>
 >;
 
+// Search tools
+const searchEmailsTool = ({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) =>
+  tool({
+    name: "searchEmails",
+    description:
+      "Search the user's emails using Gmail query syntax. Use this to find specific emails. Returns thread IDs and summaries.",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe(
+          "Gmail search query (e.g., 'from:john', '\"exact phrase\"', 'subject:invoice', 'has:attachment')",
+        ),
+      maxResults: z
+        .number()
+        .optional()
+        .default(10)
+        .describe("Maximum number of results to return"),
+    }),
+    execute: async ({
+      query,
+      maxResults = 10,
+    }: {
+      query: string;
+      maxResults?: number;
+    }) => {
+      logger.info("AI searching emails", { query, maxResults });
+
+      try {
+        const res = await emailProvider.getMessagesWithPagination({
+          query,
+          maxResults: Math.min(maxResults, 20),
+        });
+
+        const results = res.messages.slice(0, maxResults).map((m) => ({
+          threadId: m.threadId,
+          subject: m.subject,
+          from: m.headers.from,
+          date: m.date,
+          snippet: m.snippet?.slice(0, 150),
+        }));
+
+        return {
+          found: results.length,
+          results,
+          hasMore: !!res.nextPageToken,
+        };
+      } catch (error) {
+        logger.error("Search failed", { error, query });
+        return { error: "Search failed", found: 0 };
+      }
+    },
+  });
+
+export type SearchEmailsTool = InferUITool<ReturnType<typeof searchEmailsTool>>;
+
+const getThreadSummaryTool = ({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) =>
+  tool({
+    name: "getThreadSummary",
+    description:
+      "Get detailed information about a specific email thread by its ID.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID to fetch"),
+    }),
+    execute: async ({ threadId }: { threadId: string }) => {
+      logger.info("AI fetching thread", { threadId });
+
+      try {
+        const thread = await emailProvider.getThread(threadId);
+        if (!thread || thread.messages.length === 0) {
+          return { error: "Thread not found" };
+        }
+
+        const messages = thread.messages.map((m) => ({
+          from: m.headers.from,
+          to: m.headers.to,
+          date: m.date,
+          subject: m.subject,
+          snippet: m.snippet?.slice(0, 300),
+        }));
+
+        return {
+          threadId,
+          messageCount: messages.length,
+          subject: messages[0]?.subject,
+          participants: [...new Set(messages.map((m) => m.from))],
+          messages,
+        };
+      } catch (error) {
+        logger.error("Failed to fetch thread", { error, threadId });
+        return { error: "Failed to fetch thread" };
+      }
+    },
+  });
+
+export type GetThreadSummaryTool = InferUITool<
+  ReturnType<typeof getThreadSummaryTool>
+>;
+
+const composeEmailTool = ({
+  user,
+  logger,
+}: {
+  user: EmailAccountWithAI;
+  logger: Logger;
+}) =>
+  tool({
+    name: "composeEmail",
+    description:
+      "Compose a new email draft for the user. Use this when they ask to write, draft, or send an email. Returns a formatted email that can be copied or sent.",
+    inputSchema: z.object({
+      to: z.string().describe("Recipient email address"),
+      subject: z.string().describe("Email subject line"),
+      body: z.string().describe("Email body content (plain text)"),
+    }),
+    execute: async ({
+      to,
+      subject,
+      body,
+    }: {
+      to: string;
+      subject: string;
+      body: string;
+    }) => {
+      logger.info("AI composing email", { to, subject });
+
+      // Return formatted email that user can copy
+      return {
+        success: true,
+        email: {
+          to,
+          subject,
+          body,
+          from: user.email,
+        },
+        message:
+          "Email composed. To send this email, open Gmail and compose a new message with the details above.",
+        gmailComposeUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+      };
+    },
+  });
+
+export type ComposeEmailTool = InferUITool<ReturnType<typeof composeEmailTool>>;
+
+// Email Action Tools
+const archiveThreadTool = ({
+  emailProvider,
+  user,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  user: EmailAccountWithAI;
+  logger: Logger;
+}) =>
+  tool({
+    name: "archiveThread",
+    description:
+      "Archive an email thread. Use this when the user wants to archive, mark as done, or remove an email from their inbox.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID to archive"),
+    }),
+    execute: async ({ threadId }: { threadId: string }) => {
+      logger.info("AI archiving thread", { threadId });
+      try {
+        await emailProvider.archiveThread(threadId, user.email);
+        return { success: true, message: "Thread archived successfully" };
+      } catch (error) {
+        logger.error("Failed to archive thread", { error, threadId });
+        return { success: false, error: "Failed to archive thread" };
+      }
+    },
+  });
+
+const trashThreadTool = ({
+  emailProvider,
+  user,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  user: EmailAccountWithAI;
+  logger: Logger;
+}) =>
+  tool({
+    name: "trashThread",
+    description:
+      "Move an email thread to trash. Use this when the user wants to delete an email.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID to trash"),
+    }),
+    execute: async ({ threadId }: { threadId: string }) => {
+      logger.info("AI trashing thread", { threadId });
+      try {
+        await emailProvider.trashThread(threadId, user.email, "user");
+        return { success: true, message: "Thread moved to trash" };
+      } catch (error) {
+        logger.error("Failed to trash thread", { error, threadId });
+        return { success: false, error: "Failed to trash thread" };
+      }
+    },
+  });
+
+const labelThreadTool = ({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) =>
+  tool({
+    name: "labelThread",
+    description:
+      "Add a label to an email. Use this when the user wants to label, tag, or categorize an email.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID to label"),
+      labelName: z.string().describe("The label name to apply"),
+    }),
+    execute: async ({
+      threadId,
+      labelName,
+    }: {
+      threadId: string;
+      labelName: string;
+    }) => {
+      logger.info("AI labeling thread", { threadId, labelName });
+      try {
+        // Get the thread to find the first message ID
+        const thread = await emailProvider.getThread(threadId);
+        if (!thread || thread.messages.length === 0) {
+          return { success: false, error: "Thread not found" };
+        }
+
+        // Get or create the label
+        let label = await emailProvider.getLabelByName(labelName);
+        if (!label) {
+          label = await emailProvider.createLabel(labelName);
+        }
+
+        // Label the first message in the thread
+        await emailProvider.labelMessage({
+          messageId: thread.messages[0].id,
+          labelId: label.id,
+          labelName: label.name,
+        });
+
+        return {
+          success: true,
+          message: `Label "${labelName}" applied to thread`,
+        };
+      } catch (error) {
+        logger.error("Failed to label thread", { error, threadId, labelName });
+        return { success: false, error: "Failed to label thread" };
+      }
+    },
+  });
+
+const markSpamTool = ({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) =>
+  tool({
+    name: "markSpam",
+    description:
+      "Mark an email thread as spam. Use this when the user wants to report spam.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID to mark as spam"),
+    }),
+    execute: async ({ threadId }: { threadId: string }) => {
+      logger.info("AI marking thread as spam", { threadId });
+      try {
+        await emailProvider.markSpam(threadId);
+        return { success: true, message: "Thread marked as spam" };
+      } catch (error) {
+        logger.error("Failed to mark as spam", { error, threadId });
+        return { success: false, error: "Failed to mark as spam" };
+      }
+    },
+  });
+
+const markReadTool = ({
+  emailProvider,
+  logger,
+}: {
+  emailProvider: EmailProvider;
+  logger: Logger;
+}) =>
+  tool({
+    name: "markRead",
+    description:
+      "Mark an email thread as read or unread. Use this when the user wants to change the read status.",
+    inputSchema: z.object({
+      threadId: z.string().describe("The thread ID"),
+      read: z
+        .boolean()
+        .describe("true to mark as read, false to mark as unread"),
+    }),
+    execute: async ({
+      threadId,
+      read,
+    }: {
+      threadId: string;
+      read: boolean;
+    }) => {
+      logger.info("AI marking thread read status", { threadId, read });
+      try {
+        await emailProvider.markReadThread(threadId, read);
+        return {
+          success: true,
+          message: `Thread marked as ${read ? "read" : "unread"}`,
+        };
+      } catch (error) {
+        logger.error("Failed to mark read status", { error, threadId });
+        return { success: false, error: "Failed to update read status" };
+      }
+    },
+  });
+
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  emailProvider,
   context,
   logger,
 }: {
   messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  emailProvider?: EmailProvider;
   context?: MessageContext;
   logger: Logger;
 }) {
-  const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
-  
-You can't perform any actions on their inbox.
-You can only adjust the rules that manage the inbox.
+  const system = `You are an assistant that helps manage a user's inbox. Our platform is called Inbox Zero.
+
+You can:
+1. Search the user's emails to find specific messages (use searchEmails tool)
+2. Get details about specific email threads (use getThreadSummary tool)
+3. Compose new emails for the user (use composeEmail tool) - always offer to draft when they ask to write/send an email
+4. Take actions on emails:
+   - Archive emails (archiveThread) - removes from inbox
+   - Delete emails (trashThread) - moves to trash
+   - Label emails (labelThread) - add labels/tags
+   - Mark as spam (markSpam)
+   - Mark as read/unread (markRead)
+5. Create and update rules that automate inbox management
 
 A rule is comprised of:
 1. A condition
@@ -953,7 +1295,20 @@ Examples:
       </explanation>
     </output>
   </example>
-</examples>`;
+</examples>
+
+${
+  user.about
+    ? `
+## User Information
+The user has provided the following information about themselves. Use this to personalize responses and drafts:
+${user.about}
+`
+    : ""
+}
+
+The user's email address is: ${user.email}
+`;
 
   const toolOptions = {
     email: user.email,
@@ -1015,6 +1370,22 @@ Examples:
       updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
+      // Email composition tool
+      composeEmail: composeEmailTool({ user, logger }),
+      // Email tools (only if emailProvider is available)
+      ...(emailProvider
+        ? {
+            // Search tools
+            searchEmails: searchEmailsTool({ emailProvider, logger }),
+            getThreadSummary: getThreadSummaryTool({ emailProvider, logger }),
+            // Action tools
+            archiveThread: archiveThreadTool({ emailProvider, user, logger }),
+            trashThread: trashThreadTool({ emailProvider, user, logger }),
+            labelThread: labelThreadTool({ emailProvider, logger }),
+            markSpam: markSpamTool({ emailProvider, logger }),
+            markRead: markReadTool({ emailProvider, logger }),
+          }
+        : {}),
     },
   });
 
