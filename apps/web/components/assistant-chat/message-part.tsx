@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { Response } from "@/components/ai-elements/response";
 import {
   Reasoning,
@@ -33,6 +34,8 @@ interface MessagePartProps {
   partIndex: number;
 }
 
+// === UI Components ===
+
 function ErrorToolCard({ error }: { error: string }) {
   return (
     <div className="flex items-center gap-2 rounded border border-red-200 bg-red-50 p-2 text-sm text-red-600 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400">
@@ -42,7 +45,6 @@ function ErrorToolCard({ error }: { error: string }) {
   );
 }
 
-// Email action tool card with icon
 function EmailActionToolCard({
   icon: Icon,
   text,
@@ -61,7 +63,6 @@ function EmailActionToolCard({
   );
 }
 
-// Search results card
 function SearchResultsCard({
   found,
   hasMore,
@@ -80,42 +81,240 @@ function SearchResultsCard({
   );
 }
 
-// Generic tool renderer for simple input/output tools
-function renderSimpleTool<T extends { toolCallId: string; state: string }>({
-  part,
-  loadingText,
-  completedText,
-  CompletedComponent,
-}: {
-  part: T;
-  loadingText: string;
-  completedText?: string;
-  CompletedComponent?: React.ComponentType<{ part: T }>;
-}) {
-  const { toolCallId, state } = part;
+// === Tool Configuration Types ===
 
+type ToolInput = Record<string, unknown>;
+type ToolOutput = Record<string, unknown>;
+
+type ToolConfig = {
+  icon?: React.ComponentType<{ className?: string }>;
+  loadingText: string | ((input: ToolInput) => string);
+  successText?: string | ((input: ToolInput, output: ToolOutput) => string);
+  SuccessComponent?: React.ComponentType<{
+    input: ToolInput;
+    output: ToolOutput;
+    toolCallId: string;
+  }>;
+};
+
+// === Tool Configurations ===
+
+const TOOL_CONFIGS: Record<string, ToolConfig> = {
+  // Simple read-only tools
+  "tool-getUserRulesAndSettings": {
+    loadingText: "Reading rules and settings...",
+    successText: "Read rules and settings",
+  },
+  "tool-getLearnedPatterns": {
+    loadingText: "Reading learned patterns...",
+    successText: "Read learned patterns",
+  },
+
+  // Rule management tools with custom success components
+  "tool-createRule": {
+    loadingText: (input) => `Creating rule "${input.name}"...`,
+    SuccessComponent: ({ input, output, toolCallId }) => (
+      <CreatedRuleToolCard
+        key={toolCallId}
+        args={input as Parameters<typeof CreatedRuleToolCard>[0]["args"]}
+        ruleId={output.ruleId as string}
+      />
+    ),
+  },
+  "tool-updateRuleConditions": {
+    loadingText: (input) => `Updating rule "${input.ruleName}" conditions...`,
+    SuccessComponent: ({ input, output, toolCallId }) => (
+      <UpdatedRuleConditions
+        key={toolCallId}
+        args={input as Parameters<typeof UpdatedRuleConditions>[0]["args"]}
+        ruleId={output.ruleId as string}
+        originalConditions={
+          output.originalConditions as Parameters<
+            typeof UpdatedRuleConditions
+          >[0]["originalConditions"]
+        }
+        updatedConditions={
+          output.updatedConditions as Parameters<
+            typeof UpdatedRuleConditions
+          >[0]["updatedConditions"]
+        }
+      />
+    ),
+  },
+  "tool-updateRuleActions": {
+    loadingText: (input) => `Updating rule "${input.ruleName}" actions...`,
+    SuccessComponent: ({ input, output, toolCallId }) => (
+      <UpdatedRuleActions
+        key={toolCallId}
+        args={input as Parameters<typeof UpdatedRuleActions>[0]["args"]}
+        ruleId={output.ruleId as string}
+        originalActions={
+          output.originalActions as Parameters<
+            typeof UpdatedRuleActions
+          >[0]["originalActions"]
+        }
+        updatedActions={
+          output.updatedActions as Parameters<
+            typeof UpdatedRuleActions
+          >[0]["updatedActions"]
+        }
+      />
+    ),
+  },
+  "tool-updateLearnedPatterns": {
+    loadingText: (input) =>
+      `Updating learned patterns for rule "${input.ruleName}"...`,
+    SuccessComponent: ({ input, output, toolCallId }) => (
+      <UpdatedLearnedPatterns
+        key={toolCallId}
+        args={input as Parameters<typeof UpdatedLearnedPatterns>[0]["args"]}
+        ruleId={output.ruleId as string}
+      />
+    ),
+  },
+  "tool-updateAbout": {
+    loadingText: "Updating about...",
+    SuccessComponent: ({ input, toolCallId }) => (
+      <UpdateAbout
+        key={toolCallId}
+        args={input as Parameters<typeof UpdateAbout>[0]["args"]}
+      />
+    ),
+  },
+  "tool-addToKnowledgeBase": {
+    loadingText: "Adding to knowledge base...",
+    SuccessComponent: ({ input, toolCallId }) => (
+      <AddToKnowledgeBase
+        key={toolCallId}
+        args={input as Parameters<typeof AddToKnowledgeBase>[0]["args"]}
+      />
+    ),
+  },
+
+  // Email search tools
+  "tool-searchEmails": {
+    icon: SearchIcon,
+    loadingText: (input) => `Searching for "${input.query}"...`,
+    SuccessComponent: ({ output, toolCallId }) => (
+      <SearchResultsCard
+        key={toolCallId}
+        found={output.found as number}
+        hasMore={output.hasMore as boolean}
+      />
+    ),
+  },
+  "tool-getThreadSummary": {
+    icon: MailIcon,
+    loadingText: "Loading email details...",
+    successText: (_input, output) =>
+      `Loaded thread: ${(output.subject as string) || "No subject"}`,
+  },
+
+  // Email action tools
+  "tool-archiveThread": {
+    icon: ArchiveIcon,
+    loadingText: "Archiving email...",
+    successText: "Email archived",
+  },
+  "tool-trashThread": {
+    icon: Trash2Icon,
+    loadingText: "Moving to trash...",
+    successText: "Moved to trash",
+  },
+  "tool-markSpam": {
+    icon: AlertTriangleIcon,
+    loadingText: "Marking as spam...",
+    successText: "Marked as spam",
+  },
+  "tool-labelThread": {
+    icon: TagIcon,
+    loadingText: (input) => `Adding label "${input.labelName}"...`,
+    successText: (input) => `Labeled as "${input.labelName}"`,
+  },
+  "tool-markRead": {
+    icon: MailIcon,
+    loadingText: (input) => `Marking as ${input.read ? "read" : "unread"}...`,
+    successText: (input) => `Marked as ${input.read ? "read" : "unread"}`,
+  },
+  "tool-composeEmail": {
+    icon: MailIcon,
+    loadingText: (input) => `Drafting email to ${input.to}...`,
+    successText: (_input, output) =>
+      output.draftId ? "Draft created in inbox" : "Email composed",
+  },
+};
+
+// === Generic Tool Renderer ===
+
+function renderToolFromConfig(
+  part: {
+    type: string;
+    toolCallId: string;
+    state: string;
+    input?: ToolInput;
+    output?: ToolOutput;
+  },
+  config: ToolConfig,
+): React.ReactNode {
+  const { toolCallId, state, input = {}, output } = part;
+
+  // Loading state
   if (state === "input-available") {
-    return <BasicToolInfo key={toolCallId} text={loadingText} />;
+    const text =
+      typeof config.loadingText === "function"
+        ? config.loadingText(input)
+        : config.loadingText;
+
+    return config.icon ? (
+      <EmailActionToolCard key={toolCallId} icon={config.icon} text={text} />
+    ) : (
+      <BasicToolInfo key={toolCallId} text={text} />
+    );
   }
 
-  if (state === "output-available") {
-    const output = (part as T & { output: unknown }).output as Record<
-      string,
-      unknown
-    >;
-    if (output && "error" in output) {
+  // Success/error state
+  if (state === "output-available" && output) {
+    // Handle errors
+    if ("error" in output) {
       return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
     }
-    if (CompletedComponent) {
-      return <CompletedComponent key={toolCallId} part={part} />;
+
+    // Custom success component
+    if (config.SuccessComponent) {
+      return (
+        <config.SuccessComponent
+          key={toolCallId}
+          input={input}
+          output={output}
+          toolCallId={toolCallId}
+        />
+      );
     }
-    if (completedText) {
-      return <BasicToolInfo key={toolCallId} text={completedText} />;
+
+    // Success text
+    if (config.successText) {
+      const text =
+        typeof config.successText === "function"
+          ? config.successText(input, output)
+          : config.successText;
+
+      return config.icon ? (
+        <EmailActionToolCard
+          key={toolCallId}
+          icon={config.icon}
+          text={text}
+          success
+        />
+      ) : (
+        <BasicToolInfo key={toolCallId} text={text} />
+      );
     }
   }
 
   return null;
 }
+
+// === Main Component ===
 
 export function MessagePart({
   part,
@@ -142,373 +341,19 @@ export function MessagePart({
     );
   }
 
-  // === Rule & Settings Tools ===
-
-  if (part.type === "tool-getUserRulesAndSettings") {
-    return renderSimpleTool({
-      part,
-      loadingText: "Reading rules and settings...",
-      completedText: "Read rules and settings",
-    });
-  }
-
-  if (part.type === "tool-getLearnedPatterns") {
-    return renderSimpleTool({
-      part,
-      loadingText: "Reading learned patterns...",
-      completedText: "Read learned patterns",
-    });
-  }
-
-  if (part.type === "tool-createRule") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Creating rule "${part.input.name}"...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <CreatedRuleToolCard
-          key={toolCallId}
-          args={part.input}
-          ruleId={output.ruleId}
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-updateRuleConditions") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Updating rule "${part.input.ruleName}" conditions...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <UpdatedRuleConditions
-          key={toolCallId}
-          args={part.input}
-          ruleId={output.ruleId}
-          originalConditions={output.originalConditions}
-          updatedConditions={output.updatedConditions}
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-updateRuleActions") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Updating rule "${part.input.ruleName}" actions...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <UpdatedRuleActions
-          key={toolCallId}
-          args={part.input}
-          ruleId={output.ruleId}
-          originalActions={output.originalActions}
-          updatedActions={output.updatedActions}
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-updateLearnedPatterns") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo
-          key={toolCallId}
-          text={`Updating learned patterns for rule "${part.input.ruleName}"...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <UpdatedLearnedPatterns
-          key={toolCallId}
-          args={part.input}
-          ruleId={output.ruleId}
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-updateAbout") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return <BasicToolInfo key={toolCallId} text="Updating about..." />;
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <UpdateAbout key={toolCallId} args={part.input} />;
-    }
-  }
-
-  if (part.type === "tool-addToKnowledgeBase") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <BasicToolInfo key={toolCallId} text="Adding to knowledge base..." />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return <AddToKnowledgeBase key={toolCallId} args={part.input} />;
-    }
-  }
-
-  // === Email Tools ===
-
-  if (part.type === "tool-searchEmails") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={SearchIcon}
-          text={`Searching for "${part.input.query}"...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <SearchResultsCard
-          key={toolCallId}
-          found={output.found}
-          hasMore={output.hasMore}
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-getThreadSummary") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text="Loading email details..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text={`Loaded thread: ${output.subject || "No subject"}`}
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-archiveThread") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={ArchiveIcon}
-          text="Archiving email..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={ArchiveIcon}
-          text="Email archived"
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-trashThread") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={Trash2Icon}
-          text="Moving to trash..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={Trash2Icon}
-          text="Moved to trash"
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-labelThread") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={TagIcon}
-          text={`Adding label "${part.input.labelName}"...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={TagIcon}
-          text={`Labeled as "${part.input.labelName}"`}
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-markSpam") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={AlertTriangleIcon}
-          text="Marking as spam..."
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={AlertTriangleIcon}
-          text="Marked as spam"
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-markRead") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text={`Marking as ${part.input.read ? "read" : "unread"}...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text={`Marked as ${part.input.read ? "read" : "unread"}`}
-          success
-        />
-      );
-    }
-  }
-
-  if (part.type === "tool-composeEmail") {
-    const { toolCallId, state } = part;
-    if (state === "input-available") {
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text={`Drafting email to ${part.input.to}...`}
-        />
-      );
-    }
-    if (state === "output-available") {
-      const { output } = part;
-      if ("error" in output) {
-        return <ErrorToolCard key={toolCallId} error={String(output.error)} />;
-      }
-      return (
-        <EmailActionToolCard
-          key={toolCallId}
-          icon={MailIcon}
-          text={output.draftId ? "Draft created in inbox" : "Email composed"}
-          success
-        />
-      );
-    }
+  // Tool rendering via config map
+  const config = TOOL_CONFIGS[part.type];
+  if (config) {
+    return renderToolFromConfig(
+      part as {
+        type: string;
+        toolCallId: string;
+        state: string;
+        input?: ToolInput;
+        output?: ToolOutput;
+      },
+      config,
+    );
   }
 
   // Unknown tool type - don't silently fail

@@ -20,6 +20,44 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { getEmailTerminology } from "@/utils/terminology";
 
+// Helper to format action types for display
+function formatActionType(type: string): string {
+  return type.toLowerCase().replace("_", " ");
+}
+
+// Shared component for static conditions (from/to/subject)
+function StaticConditionsList({
+  conditions,
+}: {
+  conditions: {
+    from?: string | null;
+    to?: string | null;
+    subject?: string | null;
+  };
+}) {
+  return (
+    <ul className="mt-1 list-inside list-disc">
+      {conditions.from && <li>From: {conditions.from}</li>}
+      {conditions.to && <li>To: {conditions.to}</li>}
+      {conditions.subject && <li>Subject: {conditions.subject}</li>}
+    </ul>
+  );
+}
+
+// Shared component for pattern fields (from/subject only)
+function PatternFieldsList({
+  fields,
+}: {
+  fields: { from?: string | null; subject?: string | null };
+}) {
+  return (
+    <ul className="mt-1 list-inside list-disc">
+      {fields.from && <li>From: {fields.from}</li>}
+      {fields.subject && <li>Subject: {fields.subject}</li>}
+    </ul>
+  );
+}
+
 export function BasicToolInfo({ text }: { text: string }) {
   return (
     <ToolCard>
@@ -67,17 +105,7 @@ export function CreatedRuleToolCard({
           {args.condition.static && (
             <div className="mt-1">
               <span className="font-medium">Static Conditions:</span>
-              <ul className="mt-1 list-inside list-disc">
-                {args.condition.static.from && (
-                  <li>From: {args.condition.static.from}</li>
-                )}
-                {args.condition.static.to && (
-                  <li>To: {args.condition.static.to}</li>
-                )}
-                {args.condition.static.subject && (
-                  <li>Subject: {args.condition.static.subject}</li>
-                )}
-              </ul>
+              <StaticConditionsList conditions={args.condition.static} />
             </div>
           )}
         </div>
@@ -89,7 +117,7 @@ export function CreatedRuleToolCard({
           {args.actions.map((action, i) => (
             <div key={i} className="rounded-md bg-muted p-2 text-sm">
               <div className="font-medium capitalize">
-                {action.type.toLowerCase().replace("_", " ")}
+                {formatActionType(action.type)}
               </div>
               {action.fields && renderActionFields(action.fields)}
             </div>
@@ -162,17 +190,7 @@ export function UpdatedRuleConditions({
         {args.condition.static && (
           <div className="mt-1">
             <span className="font-medium">Static Conditions:</span>
-            <ul className="mt-1 list-inside list-disc">
-              {args.condition.static.from && (
-                <li>From: {args.condition.static.from}</li>
-              )}
-              {args.condition.static.to && (
-                <li>To: {args.condition.static.to}</li>
-              )}
-              {args.condition.static.subject && (
-                <li>Subject: {args.condition.static.subject}</li>
-              )}
-            </ul>
+            <StaticConditionsList conditions={args.condition.static} />
           </div>
         )}
       </div>
@@ -261,7 +279,7 @@ export function UpdatedRuleActions({
           return (
             <div key={i} className="rounded-md bg-muted p-2 text-sm">
               <div className="font-medium capitalize">
-                {actionItem.type.toLowerCase().replace("_", " ")}
+                {formatActionType(actionItem.type)}
               </div>
               {actionItem.fields && renderActionFields(actionItem.fields)}
             </div>
@@ -305,28 +323,14 @@ export function UpdatedLearnedPatterns({
                 Object.values(pattern.include).some(Boolean) && (
                   <div className="mb-1">
                     <span className="font-medium">Include:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.include.from && (
-                        <li>From: {pattern.include.from}</li>
-                      )}
-                      {pattern.include.subject && (
-                        <li>Subject: {pattern.include.subject}</li>
-                      )}
-                    </ul>
+                    <PatternFieldsList fields={pattern.include} />
                   </div>
                 )}
               {pattern.exclude &&
                 Object.values(pattern.exclude).some(Boolean) && (
                   <div>
                     <span className="font-medium">Exclude:</span>
-                    <ul className="mt-1 list-inside list-disc">
-                      {pattern.exclude.from && (
-                        <li>From: {pattern.exclude.from}</li>
-                      )}
-                      {pattern.exclude.subject && (
-                        <li>Subject: {pattern.exclude.subject}</li>
-                      )}
-                    </ul>
+                    <PatternFieldsList fields={pattern.exclude} />
                   </div>
                 )}
             </div>
@@ -351,7 +355,7 @@ export function AddToKnowledgeBase({
 }: {
   args: AddToKnowledgeBaseTool["input"];
 }) {
-  const [_, setTab] = useQueryState("tab");
+  const [, setTab] = useQueryState("tab");
 
   return (
     <ToolCard>

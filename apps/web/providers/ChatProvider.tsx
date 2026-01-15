@@ -78,7 +78,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       console.error(error);
       captureException(error);
       toastError({
-        title: "An error occured!",
+        title: "An error occurred!",
         description: error.message || "",
       });
     },
@@ -129,11 +129,6 @@ export function useChat(): ChatContextType {
   return context;
 }
 
-// NOTE: not sure why we don't just use the default from AI SDK
 function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  return crypto.randomUUID();
 }
