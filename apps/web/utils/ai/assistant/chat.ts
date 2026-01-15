@@ -755,7 +755,45 @@ const composeEmailTool = ({
 
 export type ComposeEmailTool = InferUITool<ReturnType<typeof composeEmailTool>>;
 
-// Email Action Tools
+// Factory for simple thread actions (archive, trash, spam)
+function createThreadActionTool({
+  name,
+  description,
+  successMessage,
+  errorPrefix,
+  action,
+  logger,
+}: {
+  name: string;
+  description: string;
+  successMessage: string;
+  errorPrefix: string;
+  action: (threadId: string) => Promise<void>;
+  logger: Logger;
+}) {
+  return tool({
+    name,
+    description,
+    inputSchema: z.object({
+      threadId: z.string().describe(`The thread ID to ${name}`),
+    }),
+    execute: async ({ threadId }: { threadId: string }) => {
+      logger.info(`AI ${name} thread`, { threadId });
+      try {
+        await action(threadId);
+        return { success: true, message: successMessage };
+      } catch (error) {
+        logger.error(`Failed to ${name} thread`, { error, threadId });
+        return {
+          success: false,
+          error: `${errorPrefix}: ${formatError(error)}`,
+        };
+      }
+    },
+  });
+}
+
+// Email Action Tools using factory
 const archiveThreadTool = ({
   emailProvider,
   user,
@@ -765,26 +803,14 @@ const archiveThreadTool = ({
   user: EmailAccountWithAI;
   logger: Logger;
 }) =>
-  tool({
+  createThreadActionTool({
     name: "archiveThread",
     description:
       "Archive an email thread. Use this when the user wants to archive, mark as done, or remove an email from their inbox.",
-    inputSchema: z.object({
-      threadId: z.string().describe("The thread ID to archive"),
-    }),
-    execute: async ({ threadId }: { threadId: string }) => {
-      logger.info("AI archiving thread", { threadId });
-      try {
-        await emailProvider.archiveThread(threadId, user.email);
-        return { success: true, message: "Thread archived successfully" };
-      } catch (error) {
-        logger.error("Failed to archive thread", { error, threadId });
-        return {
-          success: false,
-          error: `Failed to archive: ${formatError(error)}`,
-        };
-      }
-    },
+    successMessage: "Thread archived successfully",
+    errorPrefix: "Failed to archive",
+    action: (threadId) => emailProvider.archiveThread(threadId, user.email),
+    logger,
   });
 
 const trashThreadTool = ({
@@ -796,26 +822,15 @@ const trashThreadTool = ({
   user: EmailAccountWithAI;
   logger: Logger;
 }) =>
-  tool({
+  createThreadActionTool({
     name: "trashThread",
     description:
       "Move an email thread to trash. Use this when the user wants to delete an email.",
-    inputSchema: z.object({
-      threadId: z.string().describe("The thread ID to trash"),
-    }),
-    execute: async ({ threadId }: { threadId: string }) => {
-      logger.info("AI trashing thread", { threadId });
-      try {
-        await emailProvider.trashThread(threadId, user.email, "user");
-        return { success: true, message: "Thread moved to trash" };
-      } catch (error) {
-        logger.error("Failed to trash thread", { error, threadId });
-        return {
-          success: false,
-          error: `Failed to trash: ${formatError(error)}`,
-        };
-      }
-    },
+    successMessage: "Thread moved to trash",
+    errorPrefix: "Failed to trash",
+    action: (threadId) =>
+      emailProvider.trashThread(threadId, user.email, "user"),
+    logger,
   });
 
 const labelThreadTool = ({
@@ -885,26 +900,14 @@ const markSpamTool = ({
   emailProvider: EmailProvider;
   logger: Logger;
 }) =>
-  tool({
+  createThreadActionTool({
     name: "markSpam",
     description:
       "Mark an email thread as spam. Use this when the user wants to report spam.",
-    inputSchema: z.object({
-      threadId: z.string().describe("The thread ID to mark as spam"),
-    }),
-    execute: async ({ threadId }: { threadId: string }) => {
-      logger.info("AI marking thread as spam", { threadId });
-      try {
-        await emailProvider.markSpam(threadId);
-        return { success: true, message: "Thread marked as spam" };
-      } catch (error) {
-        logger.error("Failed to mark as spam", { error, threadId });
-        return {
-          success: false,
-          error: `Failed to mark spam: ${formatError(error)}`,
-        };
-      }
-    },
+    successMessage: "Thread marked as spam",
+    errorPrefix: "Failed to mark spam",
+    action: (threadId) => emailProvider.markSpam(threadId),
+    logger,
   });
 
 const markReadTool = ({
