@@ -46,17 +46,20 @@ function MessagesContent({
 
   // Scroll to bottom when user sends a new message (to see the AI response)
   // The library handles scrolling during streaming via resize="smooth"
+  // Note: We only depend on messages.length, not messages array (reference changes every render)
   useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
     const isNewUserMessage =
       messages.length > prevMessageCount.current &&
-      messages[messages.length - 1]?.role === "user";
+      lastMessage?.role === "user";
 
     if (isNewUserMessage && !isAtBottom) {
       scrollToBottom();
     }
 
     prevMessageCount.current = messages.length;
-  }, [messages.length, messages, isAtBottom, scrollToBottom]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- messages array ref changes each render, use length only
+  }, [messages.length, isAtBottom, scrollToBottom]);
 
   return (
     <ConversationContent className="flex flex-col gap-6 pt-0 h-full">
