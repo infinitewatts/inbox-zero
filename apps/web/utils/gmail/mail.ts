@@ -144,7 +144,12 @@ export async function sendEmailWithHtml(
       .trim();
   }
 
-  const raw = await createRawMailMessage({ ...body, messageHtml: trackedHtml, messageText, trackingId: emailId });
+  const raw = await createRawMailMessage({
+    ...body,
+    messageHtml: trackedHtml,
+    messageText,
+    trackingId: emailId,
+  });
   const result = await withGmailRetry(() =>
     gmail.users.messages.send({
       userId: "me",
@@ -339,7 +344,7 @@ async function createDraft(
       userId: "me",
       requestBody: {
         message: {
-          threadId,
+          threadId: threadId || undefined,
           raw,
         },
       },
@@ -352,6 +357,44 @@ async function createDraft(
   });
 
   return result;
+}
+
+// Create a new draft (not a reply)
+export async function createNewDraft(
+  gmail: gmail_v1.Gmail,
+  args: {
+    to: string;
+    cc?: string;
+    bcc?: string;
+    subject: string;
+    body: string;
+  },
+  from?: string,
+) {
+  logger.info("Creating new email draft", {
+    to: args.to,
+    subject: args.subject,
+  });
+
+  const messageHtml = convertTextToHtmlParagraphs(args.body);
+  const raw = await createRawMailMessage(
+    {
+      to: args.to,
+      cc: args.cc,
+      bcc: args.bcc,
+      subject: args.subject,
+      messageHtml,
+      messageText: args.body,
+    },
+    from,
+  );
+
+  const result = await createDraft(gmail, "", raw);
+
+  return {
+    draftId: result.data.id || "",
+    messageId: result.data.message?.id || "",
+  };
 }
 
 export function convertTextToHtmlParagraphs(text?: string | null): string {

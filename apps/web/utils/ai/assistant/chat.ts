@@ -783,16 +783,18 @@ export type GetThreadSummaryTool = InferUITool<
 >;
 
 const composeEmailTool = ({
+  emailProvider,
   user,
   logger,
 }: {
+  emailProvider?: EmailProvider;
   user: EmailAccountWithAI;
   logger: Logger;
 }) =>
   tool({
     name: "composeEmail",
     description:
-      "Compose a new email draft for the user. Use this when they ask to write, draft, or send an email. Returns a formatted email that can be copied or sent.",
+      "Compose a new email draft for the user. Use this when they ask to write, draft, or send an email. Creates an actual draft in their inbox.",
     inputSchema: z.object({
       to: z.string().describe("Recipient email address"),
       subject: z.string().describe("Email subject line"),
@@ -807,25 +809,52 @@ const composeEmailTool = ({
       subject: string;
       body: string;
     }) => {
-      logger.info("AI composing email", { to, subject });
+      logger.info("AI composing email draft", { to, subject });
 
-      // Return formatted email that user can copy
-      return {
-        success: true,
-        email: {
+      try {
+        if (emailProvider) {
+          // Actually create a draft in the user's inbox
+          const { draftId } = await emailProvider.createNewDraft({
+            to,
+            subject,
+            body,
+          });
+
+          return {
+            success: true,
+            draftId,
+            message: "Draft created! You can find it in your Drafts folder.",
+            email: { to, subject, body, from: user.email },
+          };
+        }
+
+        // Fallback if no email provider
+        return {
+          success: true,
+          message: "Draft composed. Open Gmail to send it.",
+          email: { to, subject, body, from: user.email },
+          gmailComposeUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
+        };
+      } catch (error) {
+        logger.error("Failed to create draft", {
+          error: error instanceof Error ? error.message : String(error),
           to,
           subject,
-          body,
-          from: user.email,
-        },
-        message:
-          "Email composed. To send this email, open Gmail and compose a new message with the details above.",
-        gmailComposeUrl: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`,
-      };
+        });
+        return {
+          success: false,
+          error: `Failed to create draft: ${error instanceof Error ? error.message : "Unknown error"}`,
+          email: { to, subject, body, from: user.email },
+        };
+      }
     },
   });
 
 export type ComposeEmailTool = InferUITool<ReturnType<typeof composeEmailTool>>;
+
+// Helper to format errors consistently
+const formatError = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 // Email Action Tools
 const archiveThreadTool = ({
@@ -851,7 +880,10 @@ const archiveThreadTool = ({
         return { success: true, message: "Thread archived successfully" };
       } catch (error) {
         logger.error("Failed to archive thread", { error, threadId });
-        return { success: false, error: "Failed to archive thread" };
+        return {
+          success: false,
+          error: `Failed to archive: ${formatError(error)}`,
+        };
       }
     },
   });
@@ -879,7 +911,10 @@ const trashThreadTool = ({
         return { success: true, message: "Thread moved to trash" };
       } catch (error) {
         logger.error("Failed to trash thread", { error, threadId });
-        return { success: false, error: "Failed to trash thread" };
+        return {
+          success: false,
+          error: `Failed to trash: ${formatError(error)}`,
+        };
       }
     },
   });
@@ -911,7 +946,10 @@ const labelThreadTool = ({
         // Get the thread to find the first message ID
         const thread = await emailProvider.getThread(threadId);
         if (!thread || thread.messages.length === 0) {
-          return { success: false, error: "Thread not found" };
+          return {
+            success: false,
+            error: "Thread not found - it may have been deleted",
+          };
         }
 
         // Get or create the label
@@ -933,7 +971,10 @@ const labelThreadTool = ({
         };
       } catch (error) {
         logger.error("Failed to label thread", { error, threadId, labelName });
-        return { success: false, error: "Failed to label thread" };
+        return {
+          success: false,
+          error: `Failed to label: ${formatError(error)}`,
+        };
       }
     },
   });
@@ -959,7 +1000,10 @@ const markSpamTool = ({
         return { success: true, message: "Thread marked as spam" };
       } catch (error) {
         logger.error("Failed to mark as spam", { error, threadId });
-        return { success: false, error: "Failed to mark as spam" };
+        return {
+          success: false,
+          error: `Failed to mark spam: ${formatError(error)}`,
+        };
       }
     },
   });
@@ -997,7 +1041,10 @@ const markReadTool = ({
         };
       } catch (error) {
         logger.error("Failed to mark read status", { error, threadId });
-        return { success: false, error: "Failed to update read status" };
+        return {
+          success: false,
+          error: `Failed to update read status: ${formatError(error)}`,
+        };
       }
     },
   });
@@ -1371,7 +1418,7 @@ The user's email address is: ${user.email}
       updateAbout: updateAboutTool(toolOptions),
       addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
       // Email composition tool
-      composeEmail: composeEmailTool({ user, logger }),
+      composeEmail: composeEmailTool({ emailProvider, user, logger }),
       // Email tools (only if emailProvider is available)
       ...(emailProvider
         ? {

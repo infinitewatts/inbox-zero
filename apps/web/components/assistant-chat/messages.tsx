@@ -45,29 +45,21 @@ function MessagesContent({
   setInput: MessagesProps["setInput"];
 }) {
   const { scrollToBottom, isAtBottom } = useStickToBottomContext();
-  const lastMessageLength = useRef(0);
+  const prevMessageCount = useRef(messages.length);
 
-  // Auto-scroll when streaming new content
+  // Scroll to bottom when user sends a new message (to see the AI response)
+  // The library handles scrolling during streaming via resize="smooth"
   useEffect(() => {
-    const currentLength = messages.reduce(
-      (acc, m) => acc + (m.content?.length || 0),
-      0,
-    );
+    const isNewUserMessage =
+      messages.length > prevMessageCount.current &&
+      messages[messages.length - 1]?.role === "user";
 
-    // Scroll to bottom when streaming and content is growing
-    if (status === "streaming" && currentLength > lastMessageLength.current) {
+    if (isNewUserMessage && !isAtBottom) {
       scrollToBottom();
     }
 
-    lastMessageLength.current = currentLength;
-  }, [messages, status, scrollToBottom]);
-
-  // Scroll to bottom when a new message is added
-  useEffect(() => {
-    if (messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages.length, scrollToBottom]);
+    prevMessageCount.current = messages.length;
+  }, [messages.length, messages, isAtBottom, scrollToBottom]);
 
   return (
     <ConversationContent className="flex flex-col gap-6 pt-0 h-full">

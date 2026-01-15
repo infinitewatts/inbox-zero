@@ -324,6 +324,57 @@ export async function draftEmail(
   return { ...updatedDraft, id: replyDraft.id };
 }
 
+// Create a new draft email (not a reply)
+export async function createNewDraft(
+  client: OutlookClient,
+  args: {
+    to: string;
+    cc?: string;
+    bcc?: string;
+    subject: string;
+    body: string;
+  },
+  logger: Logger,
+): Promise<{ draftId: string }> {
+  const toRecipients = args.to.split(",").map((email) => ({
+    emailAddress: { address: email.trim() },
+  }));
+
+  const ccRecipients = args.cc
+    ? args.cc.split(",").map((email) => ({
+        emailAddress: { address: email.trim() },
+      }))
+    : [];
+
+  const bccRecipients = args.bcc
+    ? args.bcc.split(",").map((email) => ({
+        emailAddress: { address: email.trim() },
+      }))
+    : [];
+
+  const htmlBody = convertTextToHtmlParagraphs(args.body);
+
+  const draft: Message = await withOutlookRetry(
+    () =>
+      client
+        .getClient()
+        .api("/me/messages")
+        .post({
+          subject: args.subject,
+          body: {
+            contentType: "html",
+            content: htmlBody,
+          },
+          toRecipients,
+          ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
+          ...(bccRecipients.length > 0 ? { bccRecipients } : {}),
+        }),
+    logger,
+  );
+
+  return { draftId: draft.id || "" };
+}
+
 function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 

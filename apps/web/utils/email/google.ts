@@ -26,6 +26,7 @@ import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
+  createNewDraft,
   draftEmail,
   forwardEmail,
   replyToEmail,
@@ -672,6 +673,22 @@ export class GmailProvider implements EmailProvider {
 
       return { draftId };
     }
+  }
+
+  async createNewDraft(args: {
+    to: string;
+    cc?: string;
+    bcc?: string;
+    subject: string;
+    body: string;
+  }): Promise<{ draftId: string }> {
+    this.logger.info("Creating new Gmail draft", {
+      to: args.to,
+      subject: args.subject,
+    });
+
+    const result = await createNewDraft(this.client, args);
+    return { draftId: result.draftId };
   }
 
   async replyToEmail(email: ParsedMessage, content: string): Promise<void> {
