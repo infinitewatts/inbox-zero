@@ -47,9 +47,7 @@ jobs:
           node-version: "22"
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
+        uses: pnpm/action-setup@v4
 
       - name: Get pnpm store directory
         shell: bash
@@ -77,14 +75,14 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           # Minimal env vars required for test harness
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
-          AUTH_SECRET: "test-secret"
+          AUTH_SECRET: "secret"
           GOOGLE_CLIENT_ID: "test"
           GOOGLE_CLIENT_SECRET: "test"
           MICROSOFT_CLIENT_ID: "test"
           MICROSOFT_CLIENT_SECRET: "test"
           GOOGLE_PUBSUB_TOPIC_NAME: "test"
-          EMAIL_ENCRYPT_SECRET: "test-encrypt-secret"
-          EMAIL_ENCRYPT_SALT: "test-encrypt-salt"
+          EMAIL_ENCRYPT_SECRET: "secret"
+          EMAIL_ENCRYPT_SALT: "salt"
           INTERNAL_API_KEY: "test"
           NEXT_PUBLIC_BASE_URL: "http://localhost:3000"
         run: pnpm -F inbox-zero-ai test-ai "$TEST_FILTER"
