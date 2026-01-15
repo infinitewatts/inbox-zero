@@ -21,7 +21,6 @@ import {
   PromptInputSubmit,
 } from "@/components/ai-elements/prompt-input";
 import { useLocalStorage } from "usehooks-ts";
-import { useAccount } from "@/providers/EmailAccountProvider";
 
 const MAX_MESSAGES = 20;
 
@@ -36,7 +35,6 @@ export function Chat({ open }: { open: boolean }) {
     context,
     setContext,
   } = useChat();
-  const { emailAccountId } = useAccount();
   const { messages, status, stop, regenerate, setMessages } = chat;
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
     "input",
@@ -92,12 +90,7 @@ export function Chat({ open }: { open: boolean }) {
         </div>
       )}
 
-      <Messages
-        status={status}
-        messages={messages}
-        setInput={setInput}
-        emailAccountId={emailAccountId}
-      />
+      <Messages status={status} messages={messages} setInput={setInput} />
 
       <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
         {context && (

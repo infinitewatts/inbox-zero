@@ -1,41 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import useSWR from "swr";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { SparklesIcon, Loader2Icon } from "lucide-react";
 
-const defaultSuggestions = [
+const DEFAULT_SUGGESTIONS = [
   "Find emails from last week",
   "Search for invoices",
   "Show unread emails",
 ];
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export const Overview = ({
   setInput,
-  emailAccountId,
 }: {
   setInput: (input: string) => void;
-  emailAccountId?: string;
 }) => {
-  const [suggestions, setSuggestions] = useState<string[]>(defaultSuggestions);
-  const [loading, setLoading] = useState(false);
+  // SWR handles caching, deduplication, and revalidation
+  const { data, isLoading } = useSWR<{ suggestions: string[] }>(
+    "/api/ai/suggestions",
+    fetcher,
+    {
+      revalidateOnFocus: false, // Don't refetch when tab regains focus
+      revalidateOnReconnect: false,
+      dedupingInterval: 300_000, // 5 minutes - match server cache
+    },
+  );
 
-  useEffect(() => {
-    if (!emailAccountId) return;
-
-    setLoading(true);
-    fetch("/api/ai/suggestions")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.suggestions?.length > 0) {
-          setSuggestions(data.suggestions);
-        }
-      })
-      .catch(() => {
-        // Keep default suggestions on error
-      })
-      .finally(() => setLoading(false));
-  }, [emailAccountId]);
+  const suggestions = data?.suggestions?.length
+    ? data.suggestions
+    : DEFAULT_SUGGESTIONS;
 
   return (
     <div className="mx-auto flex h-full max-w-3xl items-center justify-center">
@@ -51,7 +46,7 @@ export const Overview = ({
         </MessageText>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {loading ? (
+          {isLoading ? (
             <Loader2Icon className="h-5 w-5 animate-spin text-muted-foreground" />
           ) : (
             suggestions.map((suggestion) => (

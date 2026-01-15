@@ -16,22 +16,15 @@ interface MessagesProps {
   status: UseChatHelpers<ChatMessage>["status"];
   messages: Array<ChatMessage>;
   setInput: (input: string) => void;
-  emailAccountId?: string;
 }
 
-export function Messages({
-  status,
-  messages,
-  setInput,
-  emailAccountId,
-}: MessagesProps) {
+export function Messages({ status, messages, setInput }: MessagesProps) {
   return (
     <Conversation className="flex min-w-0 flex-1">
       <MessagesContent
         status={status}
         messages={messages}
         setInput={setInput}
-        emailAccountId={emailAccountId}
       />
       <ConversationScrollButton />
     </Conversation>
@@ -43,12 +36,10 @@ function MessagesContent({
   status,
   messages,
   setInput,
-  emailAccountId,
 }: {
   status: MessagesProps["status"];
   messages: MessagesProps["messages"];
   setInput: MessagesProps["setInput"];
-  emailAccountId?: string;
 }) {
   const { scrollToBottom, isAtBottom } = useStickToBottomContext();
   const prevMessageCount = useRef(messages.length);
@@ -69,9 +60,7 @@ function MessagesContent({
 
   return (
     <ConversationContent className="flex flex-col gap-6 pt-0 h-full">
-      {messages.length === 0 && (
-        <Overview setInput={setInput} emailAccountId={emailAccountId} />
-      )}
+      {messages.length === 0 && <Overview setInput={setInput} />}
 
       {messages.map((message) => (
         <Message from={message.role} key={message.id}>
