@@ -25,6 +25,7 @@ import {
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
+  SearchIcon,
   SendIcon,
   SettingsIcon,
   SparklesIcon,
@@ -95,6 +96,11 @@ export const useNavigation = () => {
         name: "Mail",
         href: prefixPath(currentEmailAccountId, "/mail"),
         icon: InboxIcon,
+      },
+      {
+        name: "Search",
+        href: prefixPath(currentEmailAccountId, "/search"),
+        icon: SearchIcon,
       },
       {
         name: "Assistant",
