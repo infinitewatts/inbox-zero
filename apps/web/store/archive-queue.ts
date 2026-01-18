@@ -24,27 +24,39 @@ type QueueState = {
 };
 
 // some users were somehow getting null for activeThreads, this should fix it
+// Also fixes SSR hydration by ensuring server and client start with the same value
 const createStorage = () => {
-  if (typeof window === "undefined") return;
-  const storage = createJSONStorage<QueueState>(() => localStorage);
+  const storage = createJSONStorage<QueueState>(() => {
+    // Server-side: return a no-op storage to prevent hydration mismatch
+    if (typeof window === "undefined") {
+      return {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      } as any;
+    }
+    return localStorage;
+  });
+
   return {
     ...storage,
     getItem: (key: string, initialValue: QueueState) => {
       const storedValue = storage.getItem(key, initialValue);
       return {
-        activeThreads: storedValue.activeThreads || {},
-        totalThreads: storedValue.totalThreads || 0,
+        activeThreads: storedValue?.activeThreads || {},
+        totalThreads: storedValue?.totalThreads || 0,
       };
     },
   };
 };
 
 // Create atoms with localStorage persistence
+// getOnInit: false prevents SSR hydration issues by delaying localStorage read until client-side
 const queueAtom = atomWithStorage(
   "gmailActionQueue",
   { activeThreads: {}, totalThreads: 0 },
   createStorage(),
-  { getOnInit: true },
+  { getOnInit: false },
 );
 
 export function useQueueState() {
