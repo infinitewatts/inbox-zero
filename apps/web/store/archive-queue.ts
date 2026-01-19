@@ -26,25 +26,28 @@ type QueueState = {
 // some users were somehow getting null for activeThreads, this should fix it
 // Also fixes SSR hydration by ensuring server and client start with the same value
 const createStorage = () => {
-  const storage = createJSONStorage<QueueState>(() => {
-    // Server-side: return a no-op storage to prevent hydration mismatch
-    if (typeof window === "undefined") {
-      return {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {},
-      } as any;
-    }
-    return localStorage;
-  });
+  if (typeof window === "undefined") {
+    // Server-side: return minimal storage that returns initial value
+    return {
+      getItem: (_key: string, initialValue: QueueState) => initialValue,
+      setItem: () => {},
+      removeItem: () => {},
+    };
+  }
+
+  const storage = createJSONStorage<QueueState>(() => localStorage);
 
   return {
     ...storage,
     getItem: (key: string, initialValue: QueueState) => {
       const storedValue = storage.getItem(key, initialValue);
+      // Ensure activeThreads and totalThreads always exist
+      if (!storedValue || typeof storedValue !== "object") {
+        return initialValue;
+      }
       return {
-        activeThreads: storedValue?.activeThreads || {},
-        totalThreads: storedValue?.totalThreads || 0,
+        activeThreads: storedValue.activeThreads || {},
+        totalThreads: storedValue.totalThreads || 0,
       };
     },
   };
@@ -171,7 +174,7 @@ function removeThreadFromQueue(threadId: string, actionType: ActionType) {
   jotaiStore.set(queueAtom, (prev) => {
     const remainingThreads = Object.fromEntries(
       Object.entries(prev.activeThreads).filter(
-        ([_key, value]) =>
+        ([_key, value]: [string, QueueItem]) =>
           !(value.threadId === threadId && value.actionType === actionType),
       ),
     );

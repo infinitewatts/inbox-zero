@@ -89,7 +89,7 @@ Keep searching until you find relevant results or have tried several variations.
     const result = await chatCompletionStream({
       userAi: emailAccount.user,
       userEmail: emailAccount.email,
-      modelType: "fast",
+      modelType: "economy",
       usageLabel: "ai-search",
       messages: [
         { role: "system", content: system },
