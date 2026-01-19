@@ -489,6 +489,38 @@ export class OutlookProvider implements EmailProvider {
     await deleteDraft({ client: this.client, draftId, logger: this.logger });
   }
 
+  async sendDraft(
+    draftId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    this.logger.info("Sending Outlook draft", { draftId });
+
+    // Send the draft using Microsoft Graph API
+    await withOutlookRetry(
+      () =>
+        this.client.getClient().api(`/me/messages/${draftId}/send`).post(null),
+      this.logger,
+    );
+
+    // Note: Outlook's send API doesn't return the sent message ID directly
+    // We need to fetch the sent message to get its ID
+    // For now, returning the draft ID as messageId
+    this.logger.warn(
+      "Outlook send draft: messageId and threadId may not be accurate",
+    );
+
+    return {
+      messageId: draftId,
+      threadId: "",
+    };
+  }
+
+  async sendDraftByMessageId(
+    messageId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    // For Outlook, the message ID is the same as the draft ID
+    return this.sendDraft(messageId);
+  }
+
   async createDraft(params: {
     to: string;
     subject: string;

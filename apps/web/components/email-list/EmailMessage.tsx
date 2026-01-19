@@ -4,6 +4,7 @@ import {
   ReplyIcon,
   ChevronsUpDownIcon,
   ChevronsDownUpIcon,
+  SendIcon,
 } from "lucide-react";
 import { Tooltip } from "@/components/Tooltip";
 import { extractNameFromEmail } from "@/utils/email";
@@ -27,6 +28,9 @@ import { MessageText, MutedText } from "@/components/Typography";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { formatReplySubject } from "@/utils/email/subject";
 import { OpenTrackingBadge } from "@/components/email-list/OpenTrackingBadge";
+import { sendDraftAction } from "@/utils/actions/mail";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { useComposeModal } from "@/providers/ComposeModalProvider";
 
 export function EmailMessage({
   message,
@@ -49,8 +53,11 @@ export function EmailMessage({
   onSendSuccess: (messageId: string, threadId: string) => void;
   generateNudge?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
+  const { onOpen: openComposeModal } = useComposeModal();
   const [showReply, setShowReply] = useState(defaultShowReply || false);
   const [showDetails, setShowDetails] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const onReply = useCallback(() => setShowReply(true), []);
   const [showForward, setShowForward] = useState(false);
@@ -65,6 +72,53 @@ export function EmailMessage({
     e.stopPropagation();
     setShowDetails((prev) => !prev);
   }, []);
+
+  const onEditDraft = useCallback(() => {
+    // Open the compose modal with the draft data
+    openComposeModal({
+      threadId: message.threadId,
+      headerMessageId: message.headers["message-id"] || "",
+      references: message.headers.references,
+      subject: message.headers.subject,
+      to: message.headers.to,
+      cc: message.headers.cc,
+      bcc: message.headers.bcc,
+      draftHtml: message.textHtml || "",
+      date: message.headers.date,
+    });
+  }, [message, openComposeModal]);
+
+  const onSendDraft = useCallback(async () => {
+    setIsSending(true);
+    try {
+      const result = await sendDraftAction(emailAccountId, {
+        messageId: message.id,
+      });
+
+      if (result?.serverError) {
+        toastError({
+          description: `Failed to send draft: ${result.serverError}`,
+        });
+        return;
+      }
+
+      toastSuccess({ description: "Draft sent successfully!" });
+
+      // Call the parent's onSendSuccess callback if provided
+      if (result?.data && onSendSuccess) {
+        onSendSuccess(result.data.messageId, result.data.threadId);
+      }
+
+      // Refetch to update the UI
+      refetch();
+    } catch (_error) {
+      toastError({
+        description: "Failed to send draft. Please try again.",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  }, [emailAccountId, message.id, onSendSuccess, refetch]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: ignore
@@ -83,6 +137,9 @@ export function EmailMessage({
         showReplyButton={showReplyButton}
         onReply={onReply}
         onForward={onForward}
+        onEditDraft={onEditDraft}
+        onSendDraft={onSendDraft}
+        isSending={isSending}
       />
 
       {expanded && (
@@ -123,6 +180,9 @@ function TopBar({
   showReplyButton,
   onReply,
   onForward,
+  onEditDraft,
+  onSendDraft,
+  isSending,
 }: {
   message: ParsedMessage;
   expanded: boolean;
@@ -131,7 +191,11 @@ function TopBar({
   showReplyButton: boolean;
   onReply: () => void;
   onForward: () => void;
+  onEditDraft?: () => void;
+  onSendDraft?: () => void;
+  isSending?: boolean;
 }) {
+  const isDraft = message.labelIds?.includes("DRAFT");
   return (
     <div className="sm:flex sm:items-center sm:justify-between">
       <div className="flex items-center gap-2">
@@ -169,7 +233,39 @@ function TopBar({
             {formatShortDate(new Date(message.headers.date))}
           </time>
         </MutedText>
-        {showReplyButton && (
+        {isDraft && onEditDraft && (
+          <div className="relative flex items-center gap-2">
+            <Tooltip content="Edit Draft">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditDraft();
+                }}
+              >
+                Edit
+              </Button>
+            </Tooltip>
+            {onSendDraft && (
+              <Tooltip content="Send Draft">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendDraft();
+                  }}
+                  disabled={isSending}
+                >
+                  <SendIcon className="h-4 w-4 mr-1" />
+                  {isSending ? "Sending..." : "Send"}
+                </Button>
+              </Tooltip>
+            )}
+          </div>
+        )}
+        {!isDraft && showReplyButton && (
           <div className="relative flex items-center">
             <Tooltip content="Reply">
               <Button variant="ghost" size="icon" onClick={onReply}>

@@ -240,3 +240,27 @@ export const sendEmailAction = actionClient
       };
     },
   );
+
+export const sendDraftAction = actionClient
+  .metadata({ name: "sendDraft" })
+  .inputSchema(z.object({ messageId: z.string() }))
+  .action(
+    async ({
+      ctx: { emailAccountId, provider, logger },
+      parsedInput: { messageId },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+        logger,
+      });
+
+      const result = await emailProvider.sendDraftByMessageId(messageId);
+
+      return {
+        success: true,
+        messageId: result.messageId,
+        threadId: result.threadId,
+      };
+    },
+  );

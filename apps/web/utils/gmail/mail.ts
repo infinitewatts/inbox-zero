@@ -396,6 +396,68 @@ export async function createNewDraft(
   };
 }
 
+// Find draft ID by message ID
+export async function getDraftIdByMessageId(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+): Promise<string | null> {
+  logger.info("Finding draft ID for message", { messageId });
+
+  const response = await withGmailRetry(() =>
+    gmail.users.drafts.list({
+      userId: "me",
+    }),
+  );
+
+  const drafts = response.data.drafts || [];
+  const matchingDraft = drafts.find((draft) => draft.message?.id === messageId);
+
+  if (!matchingDraft?.id) {
+    logger.warn("No draft found for message", { messageId });
+    return null;
+  }
+
+  logger.info("Found draft ID", { messageId, draftId: matchingDraft.id });
+  return matchingDraft.id;
+}
+
+// Send an existing draft
+export async function sendDraft(gmail: gmail_v1.Gmail, draftId: string) {
+  ensureEmailSendingEnabled();
+
+  logger.info("Sending draft", { draftId });
+
+  const result = await withGmailRetry(() =>
+    gmail.users.drafts.send({
+      userId: "me",
+      requestBody: {
+        id: draftId,
+      },
+    }),
+  );
+
+  logger.info("Draft sent successfully", {
+    draftId,
+    messageId: result.data.id,
+  });
+
+  return result;
+}
+
+// Send draft by message ID (finds draft ID first)
+export async function sendDraftByMessageId(
+  gmail: gmail_v1.Gmail,
+  messageId: string,
+) {
+  const draftId = await getDraftIdByMessageId(gmail, messageId);
+
+  if (!draftId) {
+    throw new Error(`No draft found for message ID: ${messageId}`);
+  }
+
+  return sendDraft(gmail, draftId);
+}
+
 export function convertTextToHtmlParagraphs(text?: string | null): string {
   if (!text) return "";
 

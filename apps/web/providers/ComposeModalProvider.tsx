@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { useModal } from "@/hooks/useModal";
 import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
+import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import {
   Maximize2Icon,
   Minimize2Icon,
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/tooltip";
 
 type Context = {
-  onOpen: () => void;
+  onOpen: (draftData?: ReplyingToEmail) => void;
 };
 
 const ComposeModalContext = createContext<Context>({
@@ -65,10 +66,17 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   const { isModalOpen, openModal, closeModal } = useModal();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [draftData, setDraftData] = useState<ReplyingToEmail | undefined>();
+
+  const handleOpen = (draft?: ReplyingToEmail) => {
+    setDraftData(draft);
+    openModal();
+  };
 
   const handleClose = () => {
     setIsMinimized(false);
     setIsMaximized(false);
+    setDraftData(undefined);
     closeModal();
   };
 
@@ -77,7 +85,7 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
   };
 
   return (
-    <ComposeModalContext.Provider value={{ onOpen: openModal }}>
+    <ComposeModalContext.Provider value={{ onOpen: handleOpen }}>
       {props.children}
 
       {isModalOpen && (
@@ -98,6 +106,12 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
               isMinimized && "cursor-pointer hover:bg-accent/50",
             )}
             onClick={() => isMinimized && setIsMinimized(false)}
+            onKeyDown={(e) => {
+              if (isMinimized && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                setIsMinimized(false);
+              }
+            }}
           >
             {/* Left controls */}
             <div className="flex items-center gap-0.5">
@@ -141,7 +155,9 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
             </div>
 
             {/* Title */}
-            <span className="text-sm font-medium">New Message</span>
+            <span className="text-sm font-medium">
+              {draftData ? "Edit Draft" : "New Message"}
+            </span>
 
             {/* Right controls */}
             <div className="flex items-center gap-0.5">
@@ -161,7 +177,11 @@ export function ComposeModalProvider(props: { children: React.ReactNode }) {
           {/* Content */}
           {!isMinimized && (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <ComposeEmailFormLazy onSuccess={handleClose} />
+              <ComposeEmailFormLazy
+                replyingToEmail={draftData}
+                onSuccess={handleClose}
+                onDiscard={handleDiscard}
+              />
             </div>
           )}
         </div>

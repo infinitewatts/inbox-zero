@@ -30,6 +30,8 @@ import {
   draftEmail,
   forwardEmail,
   replyToEmail,
+  sendDraft,
+  sendDraftByMessageId,
   sendEmailWithPlainText,
   sendEmailWithHtml,
 } from "@/utils/gmail/mail";
@@ -637,6 +639,26 @@ export class GmailProvider implements EmailProvider {
 
   async deleteDraft(draftId: string): Promise<void> {
     await deleteDraft(this.client, draftId);
+  }
+
+  async sendDraft(
+    draftId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    const result = await sendDraft(this.client, draftId);
+    return {
+      messageId: result.data.id || "",
+      threadId: result.data.threadId || "",
+    };
+  }
+
+  async sendDraftByMessageId(
+    messageId: string,
+  ): Promise<{ messageId: string; threadId: string }> {
+    const result = await sendDraftByMessageId(this.client, messageId);
+    return {
+      messageId: result.data.id || "",
+      threadId: result.data.threadId || "",
+    };
   }
 
   async createDraft(params: {
