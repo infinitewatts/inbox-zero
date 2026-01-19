@@ -124,7 +124,7 @@ export const useNavigation = () => {
         href: prefixPath(currentEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(isGoogleProvider(provider)
+      ...(isGoogleProvider(provider) && showCleaner
         ? [
             {
               name: "Deep Clean",
@@ -179,6 +179,7 @@ export const useNavigation = () => {
       showSmartFiling,
       showMeetingBriefs,
       showIntegrations,
+      showCleaner,
     ],
   );
 

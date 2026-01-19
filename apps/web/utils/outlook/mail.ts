@@ -400,6 +400,8 @@ async function sendReplyUsingCreateReply(
   const originalMessageId = body.replyToEmail!.messageId!;
 
   // Use createReply to create a properly threaded draft
+  // Microsoft Graph's createReply automatically sets In-Reply-To and References headers
+  // based on the original message, ensuring proper threading across email providers
   const replyDraft: Message = await withOutlookRetry(
     () =>
       client
@@ -410,6 +412,9 @@ async function sendReplyUsingCreateReply(
   );
 
   // Update the draft with our content and recipients
+  // Note: We cannot set In-Reply-To/References headers via internetMessageHeaders
+  // as Microsoft Graph only allows custom headers (starting with x-) there.
+  // The createReply endpoint handles standard threading headers automatically.
   await withOutlookRetry(
     () =>
       client

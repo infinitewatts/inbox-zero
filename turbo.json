@@ -7,6 +7,8 @@
         "NODE_ENV",
         "DATABASE_URL",
         "DIRECT_URL",
+        "PREVIEW_DATABASE_URL",
+        "PREVIEW_DATABASE_URL_UNPOOLED",
         "NEXTAUTH_SECRET",
         "AUTH_SECRET",
 
@@ -91,6 +93,8 @@
         "WHITELIST_FROM",
         "API_KEY_SALT",
         "HEALTH_API_KEY",
+        "OAUTH_PROXY_URL",
+        "ADDITIONAL_TRUSTED_ORIGINS",
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",
         "GITHUB_MARKETING_TOKEN",

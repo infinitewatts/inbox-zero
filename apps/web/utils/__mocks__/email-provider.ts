@@ -85,6 +85,7 @@ export const createMockEmailProvider = (
   removeThreadLabel: vi.fn().mockResolvedValue(undefined),
   removeThreadLabels: vi.fn().mockResolvedValue(undefined),
   draftEmail: vi.fn().mockResolvedValue({ draftId: "draft1" }),
+  createNewDraft: vi.fn().mockResolvedValue({ draftId: "draft-new" }),
   replyToEmail: vi.fn().mockResolvedValue(undefined),
   sendEmail: vi.fn().mockResolvedValue(undefined),
   forwardEmail: vi.fn().mockResolvedValue(undefined),
@@ -94,6 +95,8 @@ export const createMockEmailProvider = (
   markReadThread: vi.fn().mockResolvedValue(undefined),
   getDraft: vi.fn().mockResolvedValue(null),
   deleteDraft: vi.fn().mockResolvedValue(undefined),
+  createDraft: vi.fn().mockResolvedValue({ id: "draft-new" }),
+  updateDraft: vi.fn().mockResolvedValue(undefined),
   createLabel: vi
     .fn()
     .mockResolvedValue({ id: "label1", name: "Test Label", type: "user" }),

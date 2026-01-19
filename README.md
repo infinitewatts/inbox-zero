@@ -83,17 +83,46 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://www.getinboxzero.com).
 
-### Self-Hosting with Docker
+### Self-Hosting
 
 The easiest way to self-host Inbox Zero is using our pre-built Docker image.
 
-See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions.
+```bash
+git clone https://github.com/elie222/inbox-zero.git
+cd inbox-zero
+npm install
+npm run setup
+
+# Start Docker (Linux/Mac)
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+
+# Start Docker (Windows PowerShell)
+# $env:NEXT_PUBLIC_BASE_URL="http://localhost:3000"; docker compose --env-file apps/web/.env --profile all up -d
+
+# Verify startup (wait for "Ready" message, Ctrl+C to exit logs)
+docker logs inbox-zero-services-web-1 -f
+```
+
+Open http://localhost:3000
+
+> **Tip:** The setup CLI guides you through configuring your AI provider (OpenAI, Anthropic, etc.) and connecting Google or Microsoft accounts. For the fastest setup, choose the defaults and select "Full Docker Compose" when asked about databases. See [Google OAuth Setup](#google-oauth-setup) and [Microsoft OAuth Setup](#microsoft-oauth-setup) below for detailed configuration instructions.
+>
+> **Important:** You must enable the [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and [Google People API](https://console.cloud.google.com/apis/library/people.googleapis.com) in your Google Cloud project, or sign-in will fail.
+
+**To update your configuration or pull the latest version:**
+
+```bash
+docker compose --env-file apps/web/.env --profile all down
+NEXT_PUBLIC_BASE_URL=http://localhost:3000 docker compose --env-file apps/web/.env --profile all up -d
+```
+
+See our **[Self-Hosting Guide](docs/hosting/self-hosting.md)** for complete instructions, production deployment, and configuration options.
 
 ### Local Development Setup
 
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
-#### Option A: Devcontainer (Recommended)
+#### Option A: Devcontainer
 
 The fastest way to get started is using [devcontainers](https://containers.dev/), supported by VS Code ([Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)), JetBrains IDEs, and other modern editors:
 
@@ -150,6 +179,8 @@ The sections below provide detailed setup instructions for OAuth and other servi
 
 ### Google OAuth Setup
 
+> **Quick Setup with CLI:** If you have the `gcloud` CLI installed, you can use `inbox-zero setup-google` to automate API enabling and Pub/Sub setup. It will guide you through the OAuth steps that require manual console access. Run `npx inbox-zero setup-google --help` for options.
+
 Go to [Google Cloud Console](https://console.cloud.google.com/) and create a new project if necessary.
 
 Create [new credentials](https://console.cloud.google.com/apis/credentials):
@@ -201,11 +232,14 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     3. Enter your email and press `Save`
 
 6.  Enable required APIs in [Google Cloud Console](https://console.cloud.google.com/apis/library):
+    - [Gmail API](https://console.cloud.google.com/apis/library/gmail.googleapis.com) (required)
     - [Google People API](https://console.cloud.google.com/marketplace/product/google/people.googleapis.com) (required)
     - [Google Calendar API](https://console.cloud.google.com/marketplace/product/google/calendar-json.googleapis.com) (only required for calendar integration)
     - [Google Drive API](https://console.cloud.google.com/marketplace/product/google/drive.googleapis.com) (only required for Google Drive integration)
 
 ### Google PubSub Setup
+
+> **Automated Setup:** If you ran `inbox-zero setup-google`, the Pub/Sub topic and subscription were created automatically. Skip to the "For local development" section if needed.
 
 PubSub enables real-time email notifications. Follow the [official guide](https://developers.google.com/gmail/api/guides/push):
 

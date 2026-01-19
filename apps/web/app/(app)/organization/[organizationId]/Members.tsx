@@ -41,7 +41,6 @@ type Member = OrganizationMembersResponse["members"][0];
 type PendingInvitation = OrganizationMembersResponse["pendingInvitations"][0];
 
 export function Members({ organizationId }: { organizationId: string }) {
-  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } =
     useOrganizationMembers(organizationId);
   const { data: executedRulesData } = useExecutedRulesCount(organizationId);
@@ -90,12 +89,12 @@ export function Members({ organizationId }: { organizationId: string }) {
   const handleRemoveMember = useCallback(
     (memberId: string) =>
       handleAction(
-        () => removeMemberAction(emailAccountId, { memberId }),
+        () => removeMemberAction({ memberId }),
         "Error removing member",
         "Member removed successfully",
         "Failed to remove member",
       ),
-    [handleAction, emailAccountId],
+    [handleAction],
   );
 
   const handleCancelInvitation = useCallback(

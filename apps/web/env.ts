@@ -18,6 +18,8 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+    PREVIEW_DATABASE_URL: z.string().url().optional(),
+    PREVIEW_DATABASE_URL_UNPOOLED: z.string().url().optional(),
 
     AUTH_SECRET: z.string().optional(),
     NEXTAUTH_SECRET: z.string().optional(),
@@ -122,6 +124,17 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
     HEALTH_API_KEY: z.string().optional(),
+    OAUTH_PROXY_URL: z.string().url().optional(),
+    // Additional trusted origins for CORS (comma-separated, supports wildcards like https://*.vercel.app)
+    ADDITIONAL_TRUSTED_ORIGINS: z
+      .string()
+      .optional()
+      .transform((value) =>
+        value
+          ?.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -269,6 +282,7 @@ export const env = createEnv({
 
     // Email open tracking
     NEXT_PUBLIC_EMAIL_TRACKER_URL: process.env.NEXT_PUBLIC_EMAIL_TRACKER_URL,
-    NEXT_PUBLIC_EMAIL_TRACKER_API_KEY: process.env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY,
+    NEXT_PUBLIC_EMAIL_TRACKER_API_KEY:
+      process.env.NEXT_PUBLIC_EMAIL_TRACKER_API_KEY,
   },
 });
