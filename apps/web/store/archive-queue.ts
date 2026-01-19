@@ -224,6 +224,11 @@ export function processQueue({
 
                 // when Gmail API returns a rate limit error, throw an error so it can be retried
                 if (result?.serverError) {
+                  // biome-ignore lint/suspicious/noConsole: frontend
+                  console.error(
+                    `Queue: ${actionType}. Error for ${threadId}:`,
+                    result.error,
+                  );
                   await sleep(exponentialBackoff(attemptCount, 1000));
                   throw new Error(result.error);
                 }
@@ -231,8 +236,13 @@ export function processQueue({
               },
               { retries: 3 },
             );
-          } catch {
+          } catch (error) {
             // all retries failed
+            // biome-ignore lint/suspicious/noConsole: frontend
+            console.error(
+              `Queue: ${actionType}. All retries failed for ${threadId}:`,
+              error,
+            );
             onError?.(threadId);
           }
 

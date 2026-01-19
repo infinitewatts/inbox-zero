@@ -270,7 +270,20 @@ export function EmailList({
         {
           loading: "Archiving...",
           success: "Archived!",
-          error: "There was an error archiving the email :(",
+          error: (err) => {
+            const errorMessage =
+              err?.message ||
+              err?.toString() ||
+              "There was an error archiving the email";
+            // Check if it's an auth error
+            if (
+              errorMessage.includes("invalid_grant") ||
+              errorMessage.includes("Unauthorized")
+            ) {
+              return "Authentication expired. Please reconnect your Google account in Settings.";
+            }
+            return errorMessage;
+          },
         },
       );
     },
@@ -346,7 +359,20 @@ export function EmailList({
       {
         loading: "Archiving emails...",
         success: "Emails archived",
-        error: "There was an error archiving the emails :(",
+        error: (err) => {
+          const errorMessage =
+            err?.message ||
+            err?.toString() ||
+            "There was an error archiving the emails";
+          // Check if it's an auth error
+          if (
+            errorMessage.includes("invalid_grant") ||
+            errorMessage.includes("Unauthorized")
+          ) {
+            return "Authentication expired. Please reconnect your Google account in Settings.";
+          }
+          return errorMessage;
+        },
       },
     );
   }, [selectedRows, refetch, emailAccountId]);

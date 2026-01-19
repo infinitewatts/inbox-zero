@@ -679,8 +679,22 @@ export function useBulkArchive<T extends Row>({
     toast.promise(promise, {
       loading: `Archiving emails from ${displayNames}...`,
       success: `Archived emails from ${displayNames}`,
-      error: (error) =>
-        error?.error?.serverError || "There was an error archiving the emails",
+      error: (error) => {
+        const errorMessage =
+          error?.error?.serverError ||
+          error?.message ||
+          error?.toString() ||
+          "There was an error archiving the emails";
+        // Check if it's an auth error
+        if (
+          errorMessage.includes("invalid_grant") ||
+          errorMessage.includes("Unauthorized") ||
+          errorMessage.includes("No refresh token")
+        ) {
+          return "Authentication expired. Please reconnect your Google account in Settings.";
+        }
+        return errorMessage;
+      },
     });
   };
 
