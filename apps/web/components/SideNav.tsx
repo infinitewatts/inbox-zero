@@ -402,7 +402,7 @@ function MailNav() {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="h-9 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-              onClick={onOpen}
+              onClick={() => onOpen()}
               sidebarName="left-sidebar"
             >
               <PenIcon className="size-4" />
