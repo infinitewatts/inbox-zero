@@ -20,15 +20,33 @@ This runs `ultracite fix` which will:
 
 **DO NOT SKIP THIS STEP - The pre-commit hook will fail if you do.**
 
+**⚠️ IMPORTANT:** The linter may auto-fix unrelated files with pre-existing issues. Only stage YOUR changes, not the linter's auto-fixes:
+
+```bash
+# Good: Stage only your specific files
+git add path/to/your/file1.tsx path/to/your/file2.ts
+
+# Bad: Stage everything (includes unrelated auto-fixes)
+git add -A
+```
+
 ### 3. Fix Any Remaining Errors
 If `npm run fix` reports errors it can't auto-fix:
 - Read the error messages carefully
 - Fix them manually
 - Run `npm run fix` again to verify
 
-### 4. Stage Changes
+### 4. Stage Only Your Changes
 ```bash
-git add -A
+# Check what changed
+git status
+
+# Stage only files you actually modified
+git add path/to/file1.tsx path/to/file2.ts
+
+# If you accidentally staged too much:
+git reset HEAD
+git add <only-your-files>
 ```
 
 ### 5. Commit
@@ -42,6 +60,12 @@ The pre-commit hook will run `ultracite fix` again, but it should pass since you
 ```bash
 git push
 ```
+
+### 7. Verify CI Build Passes
+After pushing, check the GitHub Actions CI build:
+- TypeScript compilation must pass
+- If it fails, you likely broke a type somewhere
+- Common issue: Changing a function signature without updating all call sites
 
 ---
 
@@ -58,6 +82,38 @@ Config in `package.json`:
   ]
 }
 ```
+
+---
+
+## Critical: Before Changing Function Signatures
+
+**ALWAYS search for all usages before changing a function signature!**
+
+When modifying a function's parameters or return type:
+
+1. **Search for all usages:**
+   ```bash
+   # Search for function name
+   grep -r "functionName" apps/web/
+
+   # Or use IDE "Find All References"
+   ```
+
+2. **Update ALL call sites** to match the new signature
+
+3. **Run TypeScript check:**
+   ```bash
+   cd apps/web
+   npx tsc --noEmit -p tsconfig.ci.json
+   ```
+   This catches type errors before CI does.
+
+**Example of what NOT to do:**
+- Changed `onOpen: () => void` to `onOpen: (data?: T) => void`
+- Forgot to update `onClick={onOpen}` → `onClick={() => onOpen()}`
+- CI build failed with TypeScript error
+
+**Always check CI after pushing** - Don't assume it will pass!
 
 ---
 
