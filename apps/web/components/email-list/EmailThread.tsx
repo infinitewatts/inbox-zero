@@ -24,6 +24,7 @@ export function EmailThread({
   const organizedMessages = useMemo(() => {
     const drafts = new Map<string, ThreadMessage>();
     const regularMessages: ThreadMessage[] = [];
+    const standaloneDrafts: ThreadMessage[] = [];
 
     messages?.forEach((message) => {
       if (message.labelIds?.includes("DRAFT")) {
@@ -32,20 +33,27 @@ export function EmailThread({
           message.headers["in-reply-to"];
         if (parentId) {
           drafts.set(parentId, message);
+        } else {
+          // Standalone draft with no parent - treat as a regular message
+          standaloneDrafts.push(message);
         }
       } else {
         regularMessages.push(message);
       }
     });
 
+    // If there are no regular messages, treat standalone drafts as regular messages
+    const messagesToDisplay =
+      regularMessages.length > 0 ? regularMessages : standaloneDrafts;
+
     // Sort by date ascending so most recent is last
-    regularMessages.sort((a, b) => {
+    messagesToDisplay.sort((a, b) => {
       const dateA = new Date(a.headers.date).getTime();
       const dateB = new Date(b.headers.date).getTime();
       return dateA - dateB;
     });
 
-    return regularMessages.map((message) => ({
+    return messagesToDisplay.map((message) => ({
       message,
       draftMessage: drafts.get(message.headers["message-id"] || ""),
     }));
